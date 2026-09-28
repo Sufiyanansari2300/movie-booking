@@ -1,0 +1,49 @@
+package com.sufiyan.moviebooking.entity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+/**
+ * A physical seat in the context of one show; this is what customers hold and book.
+ * {@code @Version} adds optimistic locking on top of the row locks taken when holding seats.
+ */
+@Getter
+@Entity
+@Table(name = "show_seats")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class ShowSeat extends BaseEntity {
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "show_id", nullable = false)
+    private Show show;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "seat_id", nullable = false)
+    private Seat seat;
+
+    @Setter
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private ShowSeatStatus status;
+
+    @Version
+    @Column(nullable = false)
+    private long version;
+
+    public ShowSeat(Show show, Seat seat) {
+        this.show = show;
+        this.seat = seat;
+        this.status = ShowSeatStatus.AVAILABLE;
+    }
+}

@@ -12,6 +12,7 @@ import com.sufiyan.moviebooking.exception.ConflictException;
 import com.sufiyan.moviebooking.exception.ResourceNotFoundException;
 import com.sufiyan.moviebooking.repository.ScreenRepository;
 import com.sufiyan.moviebooking.repository.SeatRepository;
+import com.sufiyan.moviebooking.repository.ShowRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,7 @@ public class ScreenService {
 
     private final ScreenRepository screenRepository;
     private final SeatRepository seatRepository;
+    private final ShowRepository showRepository;
     private final TheaterService theaterService;
 
     @Transactional
@@ -56,6 +58,7 @@ public class ScreenService {
     @Transactional
     public void delete(Long id) {
         Screen screen = getEntity(id);
+        requireNoShows(id);
         seatRepository.deleteByScreenId(id);
         screenRepository.delete(screen);
     }
@@ -74,6 +77,7 @@ public class ScreenService {
     @Transactional
     public SeatLayoutResponse replaceLayout(Long screenId, SeatLayoutRequest request) {
         Screen screen = getEntity(screenId);
+        requireNoShows(screenId);
         List<SeatLayoutPlanner.PlannedSeat> planned = SeatLayoutPlanner.plan(request);
         seatRepository.deleteByScreenId(screenId);
         // The bulk delete cleared the persistence context, so attach new seats to a fresh reference.
@@ -88,6 +92,13 @@ public class ScreenService {
     public SeatLayoutResponse getLayout(Long screenId) {
         Screen screen = getEntity(screenId);
         return layout(screen, seatRepository.findByScreenIdOrderByRowLabelAscSeatNumberAsc(screenId));
+    }
+
+    /** Shows copy the layout into show seats, so the layout is frozen once any show exists. */
+    private void requireNoShows(Long screenId) {
+        if (showRepository.existsByScreenId(screenId)) {
+            throw new ConflictException("SCREEN_HAS_SHOWS", "The screen has shows; its layout can no longer change");
+        }
     }
 
     Screen getEntity(Long id) {

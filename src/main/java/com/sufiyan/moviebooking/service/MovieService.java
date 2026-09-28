@@ -7,6 +7,7 @@ import com.sufiyan.moviebooking.entity.Movie;
 import com.sufiyan.moviebooking.exception.ConflictException;
 import com.sufiyan.moviebooking.exception.ResourceNotFoundException;
 import com.sufiyan.moviebooking.repository.MovieRepository;
+import com.sufiyan.moviebooking.repository.ShowRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,7 @@ public class MovieService {
             List.of("title", "releaseDate", "durationMinutes", "language", "genre"));
 
     private final MovieRepository movieRepository;
+    private final ShowRepository showRepository;
 
     @Transactional
     public MovieResponse create(MovieRequest request) {
@@ -58,7 +60,11 @@ public class MovieService {
 
     @Transactional
     public void delete(Long id) {
-        movieRepository.delete(getEntity(id));
+        Movie movie = getEntity(id);
+        if (showRepository.existsByMovieId(id)) {
+            throw new ConflictException("MOVIE_HAS_SHOWS", "The movie has shows and cannot be deleted");
+        }
+        movieRepository.delete(movie);
     }
 
     @Transactional(readOnly = true)

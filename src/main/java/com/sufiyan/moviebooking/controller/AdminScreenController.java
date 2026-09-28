@@ -44,14 +44,14 @@ public class AdminScreenController {
         return screenService.rename(id, request);
     }
 
-    @Operation(summary = "Delete a screen and its seats")
+    @Operation(summary = "Delete a screen and its seats (blocked once it has shows)")
     @DeleteMapping("/screens/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
         screenService.delete(id);
     }
 
-    @Operation(summary = "Replace the whole seat layout from row sections, e.g. rows A-H x 12 REGULAR")
+    @Operation(summary = "Replace the whole seat layout from row sections, e.g. rows A-H x 12 REGULAR (blocked once it has shows)")
     @PutMapping("/screens/{id}/layout")
     public SeatLayoutResponse replaceLayout(@PathVariable Long id, @Valid @RequestBody SeatLayoutRequest request) {
         return screenService.replaceLayout(id, request);

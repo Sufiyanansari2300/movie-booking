@@ -1,9 +1,10 @@
 package com.sufiyan.moviebooking.controller;
 
 import com.sufiyan.moviebooking.config.OpenApiConfig;
-import com.sufiyan.moviebooking.dto.MovieRequest;
-import com.sufiyan.moviebooking.dto.MovieResponse;
-import com.sufiyan.moviebooking.service.MovieService;
+import com.sufiyan.moviebooking.dto.CreateShowRequest;
+import com.sufiyan.moviebooking.dto.ShowResponse;
+import com.sufiyan.moviebooking.dto.UpdateShowPricesRequest;
+import com.sufiyan.moviebooking.service.ShowService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,32 +20,32 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "Admin - Movies", description = "Manage movies (ADMIN)")
+@Tag(name = "Admin - Shows", description = "Schedule shows and set prices (ADMIN)")
 @SecurityRequirement(name = OpenApiConfig.BEARER_AUTH)
 @RestController
-@RequestMapping("/api/admin/movies")
+@RequestMapping("/api/admin/shows")
 @RequiredArgsConstructor
-public class AdminMovieController {
+public class AdminShowController {
 
-    private final MovieService movieService;
+    private final ShowService showService;
 
-    @Operation(summary = "Create a movie")
+    @Operation(summary = "Schedule a show (rejects overlaps on the screen; creates a seat map for the show)")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public MovieResponse create(@Valid @RequestBody MovieRequest request) {
-        return movieService.create(request);
+    public ShowResponse create(@Valid @RequestBody CreateShowRequest request) {
+        return showService.create(request);
     }
 
-    @Operation(summary = "Update a movie")
-    @PutMapping("/{id}")
-    public MovieResponse update(@PathVariable Long id, @Valid @RequestBody MovieRequest request) {
-        return movieService.update(id, request);
+    @Operation(summary = "Change a show's base prices per seat type (affects new bookings only)")
+    @PutMapping("/{id}/prices")
+    public ShowResponse updatePrices(@PathVariable Long id, @Valid @RequestBody UpdateShowPricesRequest request) {
+        return showService.updatePrices(id, request);
     }
 
-    @Operation(summary = "Delete a movie (blocked once it has shows)")
+    @Operation(summary = "Delete a show that has no held or booked seats")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
-        movieService.delete(id);
+        showService.delete(id);
     }
 }
