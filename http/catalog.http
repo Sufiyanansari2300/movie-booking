@@ -1,0 +1,113 @@
+### ---------- Auth ----------
+
+### Log in as admin (stores adminToken)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{"email": "{{adminEmail}}", "password": "{{adminPassword}}"}
+
+> {% client.global.set("adminToken", response.body.accessToken); %}
+
+### Register a customer (409 if it already exists - that's fine)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{"name": "Demo Customer", "email": "{{customerEmail}}", "password": "{{customerPassword}}"}
+
+### Log in as customer (stores customerToken)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{"email": "{{customerEmail}}", "password": "{{customerPassword}}"}
+
+> {% client.global.set("customerToken", response.body.accessToken); %}
+
+### Who am I
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{customerToken}}
+
+### ---------- Admin: build the catalogue ----------
+
+### Create city (stores cityId)
+POST {{baseUrl}}/api/admin/cities
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{"name": "Pune", "state": "Maharashtra"}
+
+> {% client.global.set("cityId", response.body.id); %}
+
+### Create theater in that city (stores theaterId)
+POST {{baseUrl}}/api/admin/theaters
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{"cityId": {{cityId}}, "name": "Riverside Cinemas", "address": "Koregaon Park"}
+
+> {% client.global.set("theaterId", response.body.id); %}
+
+### Create screen (stores screenId)
+POST {{baseUrl}}/api/admin/theaters/{{theaterId}}/screens
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{"name": "Audi 1"}
+
+> {% client.global.set("screenId", response.body.id); %}
+
+### Set the seat layout: 8 regular rows x 12 + 2 premium rows x 10 = 116 seats
+PUT {{baseUrl}}/api/admin/screens/{{screenId}}/layout
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "sections": [
+    {"rows": "A-H", "seatsPerRow": 12, "seatType": "REGULAR"},
+    {"rows": "I-J", "seatsPerRow": 10, "seatType": "PREMIUM"}
+  ]
+}
+
+### View the layout
+GET {{baseUrl}}/api/admin/screens/{{screenId}}/layout
+Authorization: Bearer {{adminToken}}
+
+### Create movie (stores movieId)
+POST {{baseUrl}}/api/admin/movies
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "title": "Oppenheimer",
+  "description": "The story of the atomic bomb.",
+  "language": "English",
+  "genre": "Drama",
+  "durationMinutes": 180,
+  "certificate": "UA",
+  "releaseDate": "2023-07-21"
+}
+
+> {% client.global.set("movieId", response.body.id); %}
+
+### Customer tries an admin API -> 403
+POST {{baseUrl}}/api/admin/cities
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{"name": "Nagpur", "state": "Maharashtra"}
+
+### ---------- Public browsing (no token) ----------
+
+### List cities
+GET {{baseUrl}}/api/cities
+
+### Theaters in a city
+GET {{baseUrl}}/api/cities/{{cityId}}/theaters
+
+### Screens in a theater
+GET {{baseUrl}}/api/theaters/{{theaterId}}/screens
+
+### Search movies
+GET {{baseUrl}}/api/movies?language=English&sort=releaseDate,desc&page=0&size=10
+
+### One movie
+GET {{baseUrl}}/api/movies/{{movieId}}

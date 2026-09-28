@@ -35,3 +35,6 @@ build/
 ### Local secrets ###
 local.properties
 .env
+
+### IntelliJ HTTP client private env (passwords) ###
+http/http-client.private.env.json
