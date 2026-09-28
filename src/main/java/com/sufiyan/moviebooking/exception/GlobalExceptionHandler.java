@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.dao.PessimisticLockingFailureException;
+import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -59,6 +60,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class})
     ResponseEntity<ApiError> handleBadParameter(Exception ex, HttpServletRequest req) {
         return build(HttpStatus.BAD_REQUEST, "INVALID_PARAMETER", ex.getMessage(), req);
+    }
+
+    /** Unknown field in a {@code sort} query parameter. */
+    @ExceptionHandler(PropertyReferenceException.class)
+    ResponseEntity<ApiError> handleBadSort(PropertyReferenceException ex, HttpServletRequest req) {
+        return build(HttpStatus.BAD_REQUEST, "INVALID_PARAMETER", "Cannot sort by '" + ex.getPropertyName() + "'", req);
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
