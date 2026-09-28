@@ -33,7 +33,7 @@ Every meaningful assumption must be recorded in `README.md` under "Assumptions".
 ./mvnw clean verify                       # build + unit tests (*Test) + integration tests (*IT), H2
 ./mvnw test -Dtest=ClassName              # run a single unit test class
 ./mvnw verify -Dit.test=ClassNameIT       # run a single integration test class
-./mvnw spring-boot:run                    # run the app against local MySQL (port 8081)
+./mvnw spring-boot:run                    # run the app against local MySQL (port 8090; 8081 is taken by a local nginx)
 ```
 
 DB settings come from env vars with defaults: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`.
