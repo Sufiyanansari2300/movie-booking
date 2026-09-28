@@ -64,8 +64,8 @@ POST   /api/bookings/{id}/cancel         refund per policy, seats AVAILABLE
 | 1 | Foundation: Flyway, auditing base entity, error handling, security, registration, admin bootstrap | Done |
 | 2 | Catalog: City, Theater, Screen, seat layout, Movie (admin CRUD + browse), demo data, `.http` walkthrough | Done |
 | 2b | Swagger / OpenAPI for all endpoints, with a coverage test | Done |
-| 3 | Shows: overlap check, ShowSeat + price generation, seat map. Also: block layout replacement, screen delete and movie delete once shows exist | |
-| 4 | Seat holds: locking, expiry scheduler, concurrency test | |
+| 3 | Shows: overlap check, ShowSeat + price generation, seat map. Also: block layout replacement, screen delete and movie delete once shows exist | Done |
+| 4 | Seat holds: locking, expiry scheduler, concurrency test. Also: show delete must be blocked by any booking row, not only by held/booked seats | |
 | 5 | Pricing rules + discount codes | |
 | 6 | Mock payment + confirmation (idempotent) | |
 | 7 | Async notifications + reminder job | |

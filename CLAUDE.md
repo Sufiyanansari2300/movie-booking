@@ -96,6 +96,14 @@ Conventions:
 - Get the caller with `@AuthenticationPrincipal AppUserPrincipal` (has `id()` and `role()`; built from JWT claims
   `sub`=user id, `email`, `role`). Never trust a user id sent in the request body.
 - Time-dependent code injects `java.time.Clock` (bean in `TimeConfig`) instead of calling `Instant.now()`.
+- Times: store `Instant` (UTC). APIs accept/return `OffsetDateTime`; responses render in the business zone
+  (`ZoneId businessZone` bean, `app.timezone`, default Asia/Kolkata). Calendar logic (a show "date", weekends) uses
+  that zone.
+- Shows: `end_time` = start + movie duration + `app.shows.cleanup-buffer`. Overlap = same screen, SCHEDULED,
+  `start < otherEnd && end > otherStart` (back-to-back is fine). Scheduling locks the screen row
+  (`ScreenRepository.findByIdForUpdate`) to serialize concurrent admins.
+- `show_seats` (one per seat per show, unique `(show_id, seat_id)`, `@Version`) is what gets held/booked —
+  never book against `seats`. Once a screen has shows its layout, and deletes of the screen/movie, are blocked.
 - Emails are normalised to lower case (`UserService.normalizeEmail`).
 
 ## Core design rules

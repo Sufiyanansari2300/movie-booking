@@ -88,6 +88,27 @@ Content-Type: application/json
 
 > {% client.global.set("movieId", response.body.id); %}
 
+### Schedule a show (set showStartTime in http-client.env.json to a future time; stores showId)
+POST {{baseUrl}}/api/admin/shows
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "movieId": {{movieId}},
+  "screenId": {{screenId}},
+  "startTime": "{{showStartTime}}",
+  "prices": {"REGULAR": 200.00, "PREMIUM": 350.00}
+}
+
+> {% client.global.set("showId", response.body.id); %}
+
+### Change the show's prices
+PUT {{baseUrl}}/api/admin/shows/{{showId}}/prices
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{"prices": {"REGULAR": 220.00, "PREMIUM": 380.00}}
+
 ### Customer tries an admin API -> 403
 POST {{baseUrl}}/api/admin/cities
 Authorization: Bearer {{customerToken}}
@@ -111,3 +132,15 @@ GET {{baseUrl}}/api/movies?language=English&sort=releaseDate,desc&page=0&size=10
 
 ### One movie
 GET {{baseUrl}}/api/movies/{{movieId}}
+
+### Upcoming shows in the city
+GET {{baseUrl}}/api/shows?cityId={{cityId}}
+
+### Shows of the movie on a date
+GET {{baseUrl}}/api/shows?movieId={{movieId}}&date=2026-10-05
+
+### One show
+GET {{baseUrl}}/api/shows/{{showId}}
+
+### Seat map of the show (use showSeatId values when booking)
+GET {{baseUrl}}/api/shows/{{showId}}/seats
