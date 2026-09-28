@@ -6,6 +6,7 @@ import com.sufiyan.moviebooking.entity.City;
 import com.sufiyan.moviebooking.entity.Theater;
 import com.sufiyan.moviebooking.exception.ConflictException;
 import com.sufiyan.moviebooking.exception.ResourceNotFoundException;
+import com.sufiyan.moviebooking.repository.ScreenRepository;
 import com.sufiyan.moviebooking.repository.TheaterRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import java.util.List;
 public class TheaterService {
 
     private final TheaterRepository theaterRepository;
+    private final ScreenRepository screenRepository;
     private final CityService cityService;
 
     @Transactional
@@ -46,7 +48,11 @@ public class TheaterService {
 
     @Transactional
     public void delete(Long id) {
-        theaterRepository.delete(getEntity(id));
+        Theater theater = getEntity(id);
+        if (screenRepository.existsByTheaterId(id)) {
+            throw new ConflictException("THEATER_HAS_SCREENS", "Delete the theater's screens first");
+        }
+        theaterRepository.delete(theater);
     }
 
     @Transactional(readOnly = true)
