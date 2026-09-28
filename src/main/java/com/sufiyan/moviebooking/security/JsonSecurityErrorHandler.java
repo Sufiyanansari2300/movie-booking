@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.oauth2.server.resource.InvalidBearerTokenException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.stereotype.Component;
@@ -27,8 +28,11 @@ public class JsonSecurityErrorHandler implements AuthenticationEntryPoint, Acces
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
                          AuthenticationException authException) throws IOException {
-        // No WWW-Authenticate header on purpose: avoids the browser login popup for API clients.
-        write(response, ApiError.of(401, "UNAUTHORIZED", "Authentication is required", request.getRequestURI()));
+        boolean tokenRejected = authException instanceof InvalidBearerTokenException;
+        String code = tokenRejected ? "INVALID_TOKEN" : "UNAUTHORIZED";
+        String message = tokenRejected ? "Access token is invalid or expired" : "Authentication is required";
+        response.setHeader("WWW-Authenticate", "Bearer");
+        write(response, ApiError.of(401, code, message, request.getRequestURI()));
     }
 
     @Override

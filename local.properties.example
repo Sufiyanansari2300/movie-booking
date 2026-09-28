@@ -6,3 +6,6 @@ spring.datasource.password=
 
 # Password for the bootstrap admin (email defaults to admin@moviebooking.local)
 app.admin.password=
+
+# JWT signing key, at least 32 characters. Generate one with: openssl rand -base64 48
+app.jwt.secret=

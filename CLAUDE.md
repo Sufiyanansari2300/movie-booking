@@ -23,6 +23,7 @@ Every meaningful assumption must be recorded in `README.md` under "Assumptions".
 - Java **25** (pinned via `.java-version` for jenv and `maven-toolchains-plugin` in `pom.xml` — do not lower it)
 - Spring Boot **4.1.1**, Maven (use the wrapper `./mvnw`)
 - Spring Web MVC, Spring Data JPA (Hibernate), Bean Validation, Spring Security, Lombok
+- Auth: JWT (HS256, 24h) via Spring Security's resource-server JWT support (Nimbus) — no OAuth flow
 - **MySQL** — main database
 - **H2** (MySQL mode) — tests only (`test` scope; config in `src/test/resources/application.properties`)
 
@@ -39,6 +40,10 @@ DB settings come from env vars with defaults: `DB_HOST`, `DB_PORT`, `DB_NAME`, `
 Local secrets go in `local.properties` (project root, git-ignored, auto-imported);
 copy `local.properties.example` to create it. Bootstrap admin: `app.admin.email` / `app.admin.password`
 (`ADMIN_PASSWORD`), created on startup by `AdminBootstrap` if missing.
+JWT signing key: `app.jwt.secret` (`JWT_SECRET`, min 32 bytes) — the app refuses to start without it.
+
+Auth flow: `POST /api/auth/login {email, password}` → `accessToken`; send `Authorization: Bearer <token>`
+on protected calls. `POST /api/auth/register` is public and always creates a CUSTOMER.
 
 ## Secrets — hard rule
 
@@ -52,7 +57,7 @@ Base package `com.sufiyan.moviebooking`, organised by layer:
 
 ```
 config/        security, JPA auditing, admin bootstrap, async/scheduling configuration
-security/      UserDetailsService, AppUserPrincipal, JSON 401/403 handler
+security/      JWT issuing + claim→principal conversion, UserDetailsService, AppUserPrincipal, JSON 401/403 handler
 controller/    REST controllers (thin: validate input, call service, return DTO)
 service/       business logic and transactions
 repository/    Spring Data JPA repositories
@@ -73,7 +78,9 @@ Conventions:
 - Entities extend `BaseEntity` (id + audited `createdAt`/`updatedAt`).
 - Schema changes go in a new Flyway migration `src/main/resources/db/migration/V<n>__<desc>.sql`
   (never edit an applied one). SQL must run on both MySQL and H2 (MySQL mode). Hibernate only validates.
-- Get the caller with `@AuthenticationPrincipal AppUserPrincipal` (has `id()` and `role()`).
+- Get the caller with `@AuthenticationPrincipal AppUserPrincipal` (has `id()` and `role()`; built from JWT claims
+  `sub`=user id, `email`, `role`). Never trust a user id sent in the request body.
+- Time-dependent code injects `java.time.Clock` (bean in `TimeConfig`) instead of calling `Instant.now()`.
 - Emails are normalised to lower case (`UserService.normalizeEmail`).
 
 ## Core design rules
@@ -92,7 +99,8 @@ Conventions:
 
 - Unit tests for services (JUnit 5 + Mockito), named `*Test` (Surefire).
 - Integration tests for REST flows (`@SpringBootTest` + `@AutoConfigureMockMvc`, H2), named `*IT` (Failsafe).
-  Annotate with `@Transactional` so each test rolls back.
+  Annotate with `@Transactional` so each test rolls back. Use `AuthTestSupport.login(...)` + `bearer(token)`
+  for authenticated calls.
 - Spring Boot 4 notes: MockMvc annotations live in `org.springframework.boot.webmvc.test.autoconfigure`;
   JSON is Jackson 3 (`tools.jackson.databind`).
 - Must include a **concurrency test**: many threads try to book the same seat, exactly one succeeds.

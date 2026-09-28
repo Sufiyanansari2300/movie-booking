@@ -10,7 +10,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+import static com.sufiyan.moviebooking.support.AuthTestSupport.bearer;
+import static com.sufiyan.moviebooking.support.AuthTestSupport.login;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -33,7 +34,9 @@ class AdminBootstrapIT {
         assertThat(userRepository.findByEmail("admin@test.local"))
                 .get().extracting("role").isEqualTo(Role.ADMIN);
 
-        mockMvc.perform(get("/api/auth/me").with(httpBasic("admin@test.local", "admin-test-password")))
+        String token = login(mockMvc, "admin@test.local", "admin-test-password");
+
+        mockMvc.perform(get("/api/auth/me").with(bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.role").value("ADMIN"));
     }

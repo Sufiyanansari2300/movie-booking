@@ -7,7 +7,7 @@ final assumptions and design reasoning live in `README.md`.
 
 | Topic | Decision | Why |
 |---|---|---|
-| Auth | HTTP Basic + BCrypt, roles `ADMIN` / `CUSTOMER` | Assignment asks for basic RBAC; OAuth/SSO is out of scope |
+| Auth | JWT login (HS256, 24h expiry) + BCrypt, roles `ADMIN` / `CUSTOMER` | Real login step; password sent once, then a short-lived token. Replaced HTTP Basic after phase 1. OAuth/SSO out of scope |
 | Schema | Flyway migrations, Hibernate `ddl-auto=validate` | Versioned, reviewable schema; same scripts run on MySQL and H2 |
 | Main DB / test DB | MySQL / H2 (MySQL mode) | As requested |
 | Seat hold duration | 10 minutes (configurable) | Typical checkout window |
