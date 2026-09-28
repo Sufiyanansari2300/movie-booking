@@ -34,6 +34,7 @@ Every meaningful assumption must be recorded in `README.md` under "Assumptions".
 ./mvnw test -Dtest=ClassName              # run a single unit test class
 ./mvnw verify -Dit.test=ClassNameIT       # run a single integration test class
 ./mvnw spring-boot:run                    # run the app against local MySQL (port 8090; 8081 is taken by a local nginx)
+./mvnw spring-boot:run -Dspring-boot.run.profiles=demo   # same, plus sample catalogue if the DB is empty
 ```
 
 DB settings come from env vars with defaults: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`.
@@ -44,6 +45,8 @@ JWT signing key: `app.jwt.secret` (`JWT_SECRET`, min 32 bytes) — the app refus
 
 Auth flow: `POST /api/auth/login {email, password}` → `accessToken`; send `Authorization: Bearer <token>`
 on protected calls. `POST /api/auth/register` is public and always creates a CUSTOMER.
+
+Manual API walkthrough: `http/catalog.http` (IntelliJ HTTP client; see `http/README.md`).
 
 ## Secrets — hard rule
 
@@ -67,14 +70,21 @@ exception/     custom exceptions + global @RestControllerAdvice handler
 ```
 
 Conventions:
-- Controllers never return entities — map to response DTOs (Java `record`s).
+- Controllers never return entities — map to response DTOs (Java `record`s). Because `open-in-view` is off,
+  services that touch lazy relations return DTOs (mapping happens inside the transaction); use
+  `@EntityGraph` finders (e.g. `findWithCityById`) to avoid N+1 queries.
+- Relations are unidirectional `@ManyToOne(fetch = LAZY)`; query children through their repository.
 - Validate request DTOs with Bean Validation annotations and `@Valid`.
 - `@Transactional` belongs on service methods, not controllers.
 - Use `BigDecimal` for money, `Instant` / `LocalDateTime` (UTC) for time.
 - REST paths: `/api/admin/**` for admin, `/api/**` for customer and public browsing.
 - Errors return one consistent `ApiError` JSON shape (timestamp, status, error code, message, path, field errors).
-  Throw `BusinessException` subclasses (`ResourceNotFoundException`, `ConflictException`, …) with a stable
-  UPPER_SNAKE error code; `GlobalExceptionHandler` maps them.
+  Throw `BusinessException` subclasses (`ResourceNotFoundException` 404, `ConflictException` 409,
+  `BadRequestException` 400) with a stable UPPER_SNAKE error code; `GlobalExceptionHandler` maps them.
+- Names are trimmed and duplicate checks are case-insensitive (`...IgnoreCase` finders).
+- Deleting a parent that still has children is blocked with 409 (e.g. `CITY_HAS_THEATERS`).
+- Paginated lists return `PageResponse<T>`; client sort fields must go through `SortValidator.requireAllowed`
+  (custom `@Query` methods otherwise turn a bad sort into a 500).
 - Entities extend `BaseEntity` (id + audited `createdAt`/`updatedAt`).
 - Schema changes go in a new Flyway migration `src/main/resources/db/migration/V<n>__<desc>.sql`
   (never edit an applied one). SQL must run on both MySQL and H2 (MySQL mode). Hibernate only validates.
@@ -102,7 +112,9 @@ Conventions:
   Annotate with `@Transactional` so each test rolls back. Use `AuthTestSupport.login(...)` + `bearer(token)`
   for authenticated calls.
 - Spring Boot 4 notes: MockMvc annotations live in `org.springframework.boot.webmvc.test.autoconfigure`;
-  JSON is Jackson 3 (`tools.jackson.databind`).
+  JSON is Jackson 3 (`tools.jackson.databind`); `PropertyReferenceException` is in `org.springframework.data.core`.
+- All test contexts share one in-memory H2 DB. A test whose data is committed (e.g. startup runners) must use
+  its own `spring.datasource.url` so it cannot leak rows into other tests (see `DemoDataSeederIT`).
 - Must include a **concurrency test**: many threads try to book the same seat, exactly one succeeds.
 - Every new feature ships with tests; `./mvnw clean verify` must pass before committing.
 
