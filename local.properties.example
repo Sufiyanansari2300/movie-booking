@@ -1,0 +1,8 @@
+# Copy to local.properties (git-ignored) and fill in your own values.
+# Loaded automatically by the app on startup.
+
+# MySQL password for the configured DB user
+spring.datasource.password=
+
+# Password for the bootstrap admin (email defaults to admin@moviebooking.local)
+app.admin.password=
