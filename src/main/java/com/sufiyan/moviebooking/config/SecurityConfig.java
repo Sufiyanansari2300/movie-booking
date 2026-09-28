@@ -39,6 +39,7 @@ public class SecurityConfig {
                         .accessDeniedHandler(errorHandler))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
                         // Public browsing of the catalogue
                         .requestMatchers(HttpMethod.GET, "/api/cities/**", "/api/theaters/**",

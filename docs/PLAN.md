@@ -63,12 +63,13 @@ POST   /api/bookings/{id}/cancel         refund per policy, seats AVAILABLE
 | 0 | Skeleton, GitHub, CLAUDE.md | Done |
 | 1 | Foundation: Flyway, auditing base entity, error handling, security, registration, admin bootstrap | Done |
 | 2 | Catalog: City, Theater, Screen, seat layout, Movie (admin CRUD + browse), demo data, `.http` walkthrough | Done |
+| 2b | Swagger / OpenAPI for all endpoints, with a coverage test | Done |
 | 3 | Shows: overlap check, ShowSeat + price generation, seat map. Also: block layout replacement, screen delete and movie delete once shows exist | |
 | 4 | Seat holds: locking, expiry scheduler, concurrency test | |
 | 5 | Pricing rules + discount codes | |
 | 6 | Mock payment + confirmation (idempotent) | |
 | 7 | Async notifications + reminder job | |
 | 8 | Refund policies, cancellation, admin show cancel | |
-| 9 | Booking history, pagination, Swagger | |
+| 9 | Booking history (pagination and Swagger already done) | |
 | 10 | Test hardening | |
 | 11 | README, seed data, `.http` requests, video | |

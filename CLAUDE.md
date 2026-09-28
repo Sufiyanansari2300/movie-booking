@@ -46,6 +46,7 @@ JWT signing key: `app.jwt.secret` (`JWT_SECRET`, min 32 bytes) — the app refus
 Auth flow: `POST /api/auth/login {email, password}` → `accessToken`; send `Authorization: Bearer <token>`
 on protected calls. `POST /api/auth/register` is public and always creates a CUSTOMER.
 
+API docs: Swagger UI at `/swagger-ui.html` (spec `/v3/api-docs`, springdoc 3.x). Click **Authorize** and paste a token.
 Manual API walkthrough: `http/catalog.http` (IntelliJ HTTP client; see `http/README.md`).
 
 ## Secrets — hard rule
@@ -88,6 +89,10 @@ Conventions:
 - Entities extend `BaseEntity` (id + audited `createdAt`/`updatedAt`).
 - Schema changes go in a new Flyway migration `src/main/resources/db/migration/V<n>__<desc>.sql`
   (never edit an applied one). SQL must run on both MySQL and H2 (MySQL mode). Hibernate only validates.
+- Every controller has `@Tag`, every endpoint `@Operation(summary = ...)`. Admin controllers (and any endpoint that
+  needs a token) carry `@SecurityRequirement(name = OpenApiConfig.BEARER_AUTH)`; `Pageable` params use
+  `@ParameterObject`. Standard error responses are added automatically by `OpenApiConfig`.
+  `OpenApiIT` fails if any `/api/**` endpoint is missing from the spec or lacks a summary/tag/correct lock.
 - Get the caller with `@AuthenticationPrincipal AppUserPrincipal` (has `id()` and `role()`; built from JWT claims
   `sub`=user id, `email`, `role`). Never trust a user id sent in the request body.
 - Time-dependent code injects `java.time.Clock` (bean in `TimeConfig`) instead of calling `Instant.now()`.
