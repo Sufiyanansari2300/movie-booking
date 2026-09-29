@@ -11,6 +11,7 @@ import com.sufiyan.moviebooking.entity.Show;
 import com.sufiyan.moviebooking.entity.Theater;
 import com.sufiyan.moviebooking.exception.BadRequestException;
 import com.sufiyan.moviebooking.exception.ConflictException;
+import com.sufiyan.moviebooking.repository.BookingRepository;
 import com.sufiyan.moviebooking.repository.ScreenRepository;
 import com.sufiyan.moviebooking.repository.SeatRepository;
 import com.sufiyan.moviebooking.repository.ShowPriceRepository;
@@ -56,6 +57,7 @@ class ShowServiceTest {
     @Mock private ScreenRepository screenRepository;
     @Mock private SeatRepository seatRepository;
     @Mock private MovieService movieService;
+    @Mock private BookingRepository bookingRepository;
 
     private ShowService service;
     private Screen screen;
@@ -63,7 +65,7 @@ class ShowServiceTest {
     @BeforeEach
     void setUp() {
         service = new ShowService(showRepository, showPriceRepository, showSeatRepository, screenRepository,
-                seatRepository, movieService, new ShowProperties(Duration.ofMinutes(15)),
+                seatRepository, bookingRepository, movieService, new ShowProperties(Duration.ofMinutes(15)),
                 Clock.fixed(NOW, ZoneOffset.UTC), ZoneId.of("Asia/Kolkata"));
         screen = new Screen(new Theater(new City("Pune", "MH"), "Riverside", "KP"), "Audi 1");
         when(movieService.getEntity(1L)).thenReturn(new Movie("Inception", null, "English", "Sci-Fi", 148, "UA", null));

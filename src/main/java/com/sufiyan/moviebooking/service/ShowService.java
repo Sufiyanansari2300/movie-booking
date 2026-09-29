@@ -19,6 +19,7 @@ import com.sufiyan.moviebooking.entity.Theater;
 import com.sufiyan.moviebooking.exception.BadRequestException;
 import com.sufiyan.moviebooking.exception.ConflictException;
 import com.sufiyan.moviebooking.exception.ResourceNotFoundException;
+import com.sufiyan.moviebooking.repository.BookingRepository;
 import com.sufiyan.moviebooking.repository.ScreenRepository;
 import com.sufiyan.moviebooking.repository.SeatRepository;
 import com.sufiyan.moviebooking.repository.ShowPriceRepository;
@@ -57,6 +58,7 @@ public class ShowService {
     private final ShowSeatRepository showSeatRepository;
     private final ScreenRepository screenRepository;
     private final SeatRepository seatRepository;
+    private final BookingRepository bookingRepository;
     private final MovieService movieService;
     private final ShowProperties showProperties;
     private final Clock clock;
@@ -107,12 +109,13 @@ public class ShowService {
         return get(show.getId());
     }
 
-    /** Removes a show that nobody has booked yet. */
+    /** Removes a show that has never been booked (not even an expired hold, which keeps history). */
     @Transactional
     public void delete(Long showId) {
         Show show = getEntity(showId);
-        if (showSeatRepository.existsByShowIdAndStatusNot(showId, ShowSeatStatus.AVAILABLE)) {
-            throw new ConflictException("SHOW_HAS_BOOKINGS", "Seats of this show are held or booked");
+        if (bookingRepository.existsByShowId(showId)
+                || showSeatRepository.existsByShowIdAndStatusNot(showId, ShowSeatStatus.AVAILABLE)) {
+            throw new ConflictException("SHOW_HAS_BOOKINGS", "This show has bookings and cannot be deleted");
         }
         showSeatRepository.deleteByShowId(showId);
         showPriceRepository.deleteByShowId(showId);
@@ -145,15 +148,16 @@ public class ShowService {
             summary.put(status, 0L);
         }
         Map<String, List<ShowSeat>> byRow = new LinkedHashMap<>();
+        Instant now = clock.instant();
         for (ShowSeat ss : showSeatRepository.findSeatMap(showId)) {
-            summary.merge(ss.getStatus(), 1L, Long::sum);
+            summary.merge(ss.effectiveStatus(now), 1L, Long::sum);
             byRow.computeIfAbsent(ss.getSeat().getRowLabel(), r -> new ArrayList<>()).add(ss);
         }
         List<SeatMapResponse.Row> rows = byRow.entrySet().stream().map(e -> {
             SeatType type = e.getValue().getFirst().getSeat().getSeatType();
             return new SeatMapResponse.Row(e.getKey(), type, prices.get(type), e.getValue().stream()
                     .map(ss -> new SeatMapResponse.SeatStatus(ss.getId(), ss.getSeat().getLabel(),
-                            ss.getSeat().getSeatNumber(), ss.getStatus()))
+                            ss.getSeat().getSeatNumber(), ss.effectiveStatus(now)))
                     .toList());
         }).toList();
         return new SeatMapResponse(show.getId(), toZoned(show.getStartTime()), show.getScreen().getName(), summary, rows);
@@ -204,7 +208,7 @@ public class ShowService {
         showPriceRepository.findByShowIdIn(ids).forEach(p -> prices
                 .computeIfAbsent(p.getShow().getId(), k -> new EnumMap<>(SeatType.class))
                 .put(p.getSeatType(), p.getPrice()));
-        Map<Long, Long> available = showSeatRepository.countByShowAndStatus(ids, ShowSeatStatus.AVAILABLE).stream()
+        Map<Long, Long> available = showSeatRepository.countHoldableByShow(ids, clock.instant()).stream()
                 .collect(Collectors.toMap(r -> (Long) r[0], r -> (Long) r[1]));
 
         return shows.stream().map(s -> {

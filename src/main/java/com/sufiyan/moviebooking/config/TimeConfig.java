@@ -13,7 +13,7 @@ import java.time.ZoneId;
  * (show dates, weekends). A single injectable clock keeps time-dependent logic testable.
  */
 @Configuration
-@EnableConfigurationProperties(ShowProperties.class)
+@EnableConfigurationProperties({ShowProperties.class, BookingProperties.class})
 public class TimeConfig {
 
     @Bean

@@ -42,7 +42,7 @@ public class AdminShowController {
         return showService.updatePrices(id, request);
     }
 
-    @Operation(summary = "Delete a show that has no held or booked seats")
+    @Operation(summary = "Delete a show that has never been booked")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {

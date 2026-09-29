@@ -83,8 +83,7 @@ class OpenApiIT {
     @Test
     void protectedOperations_declareBearerAuth_andPublicOnesDoNot() {
         for (String endpoint : apiEndpoints()) {
-            String path = endpoint.split(" ", 2)[1];
-            boolean expectSecured = path.startsWith("/api/admin/") || path.equals("/api/auth/me");
+            boolean expectSecured = !isPublic(endpoint);
             List<?> security = (List<?>) operation(endpoint).get("security");
             boolean secured = security != null && security.toString().contains(OpenApiConfig.BEARER_AUTH);
             assertThat(secured).as("bearerAuth on " + endpoint).isEqualTo(expectSecured);
@@ -110,6 +109,18 @@ class OpenApiIT {
     @Test
     void authenticationPrincipal_isNotExposedAsParameter() {
         assertThat(operation("GET /api/auth/me").get("parameters")).isNull();
+    }
+
+    /** Mirrors the permitAll rules in SecurityConfig. */
+    private static boolean isPublic(String endpoint) {
+        String[] parts = endpoint.split(" ", 2);
+        String method = parts[0];
+        String path = parts[1];
+        if (method.equals("POST")) {
+            return path.equals("/api/auth/register") || path.equals("/api/auth/login");
+        }
+        return method.equals("GET") && (path.startsWith("/api/cities") || path.startsWith("/api/theaters")
+                || path.startsWith("/api/movies") || path.startsWith("/api/shows"));
     }
 
     /** "METHOD /path" for every mapped controller method under /api. */

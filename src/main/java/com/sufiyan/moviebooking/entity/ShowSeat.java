@@ -14,6 +14,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Instant;
+
 /**
  * A physical seat in the context of one show; this is what customers hold and book.
  * {@code @Version} adds optimistic locking on top of the row locks taken when holding seats.
@@ -37,6 +39,14 @@ public class ShowSeat extends BaseEntity {
     @Column(nullable = false, length = 20)
     private ShowSeatStatus status;
 
+    /** Booking currently holding or owning this seat; null while AVAILABLE. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "booking_id")
+    private Booking booking;
+
+    @Column(name = "hold_expires_at")
+    private Instant holdExpiresAt;
+
     @Version
     @Column(nullable = false)
     private long version;
@@ -45,5 +55,22 @@ public class ShowSeat extends BaseEntity {
         this.show = show;
         this.seat = seat;
         this.status = ShowSeatStatus.AVAILABLE;
+    }
+
+    /** Free to hold: AVAILABLE, or HELD by a hold that has already expired (not yet swept). */
+    public boolean isHoldable(Instant now) {
+        return status == ShowSeatStatus.AVAILABLE
+                || (status == ShowSeatStatus.HELD && holdExpiresAt != null && !holdExpiresAt.isAfter(now));
+    }
+
+    /** Status as customers should see it: an expired hold shows as AVAILABLE. */
+    public ShowSeatStatus effectiveStatus(Instant now) {
+        return isHoldable(now) ? ShowSeatStatus.AVAILABLE : status;
+    }
+
+    public void hold(Booking booking, Instant expiresAt) {
+        this.status = ShowSeatStatus.HELD;
+        this.booking = booking;
+        this.holdExpiresAt = expiresAt;
     }
 }
