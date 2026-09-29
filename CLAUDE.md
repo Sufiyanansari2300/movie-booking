@@ -34,6 +34,7 @@ Every meaningful assumption must be recorded in `README.md` under "Assumptions".
 ./mvnw test -Dtest=ClassName              # run a single unit test class
 ./mvnw verify -Dit.test=ClassNameIT       # run a single integration test class
 # Never `clean` while the app is running from IntelliJ: it deletes target/classes and kills the app.
+# Coverage (unit + integration): target/site/jacoco/index.html. `verify` fails below 95% lines / 88% branches.
 ./mvnw spring-boot:run                    # run the app against local MySQL (port 8090; 8081 is taken by a local nginx)
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=demo   # same, plus sample catalogue if the DB is empty
 ```
@@ -173,7 +174,10 @@ Conventions:
   `MYSQL_IT_USERNAME`, `MYSQL_IT_PASSWORD` are set — use a dedicated schema such as `movie_booking_it`.
 - Time travel in tests: `@Import(MutableClockConfig.class)` and `MutableClock.advance(...)`.
   `support/TestData` builds users and a ready show (A-B regular, C premium) with unique names.
-- Every new feature ships with tests; `./mvnw clean verify` must pass before committing.
+- `journey/CustomerJourneyIT` walks the whole product through the HTTP API only (admin setup -> browse -> hold ->
+  discount -> pay -> cancel with refund); keep it green as the end-to-end smoke test.
+- Provider failures: `@MockitoSpyBean MockPaymentGateway` + `doReturn(...)` to simulate declines/refund failures.
+- Every new feature ships with tests; `./mvnw verify` must pass (incl. the coverage floor) before committing.
 
 ## Git workflow
 

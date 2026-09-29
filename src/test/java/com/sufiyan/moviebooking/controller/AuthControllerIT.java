@@ -11,7 +11,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.JwsHeader;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -197,6 +201,19 @@ class AuthControllerIT {
                 .issue(AppUserPrincipal.from(carol)).value();
 
         mockMvc.perform(get("/api/auth/me").with(bearer(expired)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("INVALID_TOKEN"));
+    }
+
+    @Test
+    void me_withCorrectlySignedTokenMissingTheRoleClaim_returns401InvalidToken() throws Exception {
+        var claims = JwtClaimsSet.builder()
+                .issuer(jwtProperties.issuer()).subject("1")
+                .issuedAt(Instant.now()).expiresAt(Instant.now().plus(Duration.ofHours(1))).build();
+        String token = jwtEncoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))
+                .getTokenValue();
+
+        mockMvc.perform(get("/api/auth/me").with(bearer(token)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("INVALID_TOKEN"));
     }
