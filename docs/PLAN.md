@@ -72,4 +72,4 @@ POST   /api/bookings/{id}/cancel         refund per policy, seats AVAILABLE
 | 8 | Refund policies (time bands, frozen per booking), customer cancellation + refund quote, admin show cancellation (resumable), cancellation notices | Done |
 | 9 | Booking history (/api/bookings/me: status, upcoming/past, sort), admin booking search, show sales summary | Done |
 | 10 | Test hardening: JaCoCo (unit + IT, enforced 95% lines / 88% branches), error-path and resilience tests, refund failures, end-to-end journey | Done |
-| 11 | README, seed data, `.http` requests, video | |
+| 11 | README (assumptions, design, testing, AI workflow), DESIGN, HAPPY_FLOW, API reference + OpenAPI snapshot, workflow skills, full `.http` re-run (55/55) | Done (video recorded separately) |

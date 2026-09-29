@@ -30,9 +30,9 @@ Every meaningful assumption must be recorded in `README.md` under "Assumptions".
 ## Commands
 
 ```bash
-./mvnw clean verify                       # build + unit tests (*Test) + integration tests (*IT), H2
+./mvnw verify                             # build + unit tests (*Test) + integration tests (*IT) on H2 + coverage
 ./mvnw test -Dtest=ClassName              # run a single unit test class
-./mvnw verify -Dit.test=ClassNameIT       # run a single integration test class
+./mvnw verify -Dit.test=ClassNameIT -Dtest=none -Dsurefire.failIfNoSpecifiedTests=false   # one integration test
 # Never `clean` while the app is running from IntelliJ: it deletes target/classes and kills the app.
 # Coverage (unit + integration): target/site/jacoco/index.html. `verify` fails below 95% lines / 88% branches.
 ./mvnw spring-boot:run                    # run the app against local MySQL (port 8090; 8081 is taken by a local nginx)
@@ -62,14 +62,17 @@ Manual API walkthrough: `http/catalog.http` (IntelliJ HTTP client; see `http/REA
 Base package `com.sufiyan.moviebooking`, organised by layer:
 
 ```
-config/        security, JPA auditing, admin bootstrap, async/scheduling configuration
+config/        security, JWT, OpenAPI, JPA auditing, time, async/scheduling, admin bootstrap, demo data
 security/      JWT issuing + claim→principal conversion, UserDetailsService, AppUserPrincipal, JSON 401/403 handler
 controller/    REST controllers (thin: validate input, call service, return DTO)
-service/       business logic and transactions
-repository/    Spring Data JPA repositories
+service/       business logic and transactions; pure calculators (pricing, discount, refund, layout)
+repository/    Spring Data JPA repositories + BookingSpecifications
 entity/        JPA entities
 dto/           request/response records
 exception/     custom exceptions + global @RestControllerAdvice handler
+payment/       PaymentGateway port + MockPaymentGateway
+notification/  NotificationSender port, composer, service, after-commit listeners, jobs
+event/         domain events (BookingConfirmedEvent, BookingCancelledEvent)
 ```
 
 Conventions:
@@ -79,7 +82,7 @@ Conventions:
 - Relations are unidirectional `@ManyToOne(fetch = LAZY)`; query children through their repository.
 - Validate request DTOs with Bean Validation annotations and `@Valid`.
 - `@Transactional` belongs on service methods, not controllers.
-- Use `BigDecimal` for money, `Instant` / `LocalDateTime` (UTC) for time.
+- Use `BigDecimal` for money, `Instant` (UTC) for stored time, `OffsetDateTime` in the API.
 - REST paths: `/api/admin/**` for admin, `/api/**` for customer and public browsing.
 - Errors return one consistent `ApiError` JSON shape (timestamp, status, error code, message, path, field errors).
   Throw `BusinessException` subclasses (`ResourceNotFoundException` 404, `ConflictException` 409,
@@ -149,11 +152,11 @@ Conventions:
 
 ## Core design rules
 
-- **No double booking.** Seat hold/booking must be serialized per show-seat: lock the rows
-  (pessimistic `SELECT ... FOR UPDATE` or optimistic `@Version`) and back it with a DB unique
-  constraint. Keep the final choice and reasoning documented in `README.md`.
+- **No double booking.** Seat holds are serialized per show-seat with a pessimistic row lock (`SELECT ... FOR
+  UPDATE`, ordered by id), backed by `@Version` and the unique `(show_id, seat_id)` constraint. Reasoning and
+  alternatives: README "Key design decisions" and `docs/DESIGN.md`.
 - **Seat holds expire.** Holds have an expiry time; expired holds are released automatically
-  (scheduled job) and must never be treated as valid when confirming a booking.
+  (scheduled job), count as free on read, and are never valid when confirming a booking.
 - **Notifications are async.** Confirmation/reminder notifications must not block or fail the
   booking transaction (send after commit, asynchronously).
 - **Payment is mocked** behind an interface so it can be swapped.
@@ -170,8 +173,10 @@ Conventions:
 - All test contexts share one in-memory H2 DB. A test whose data is committed (e.g. startup runners) must use
   its own `spring.datasource.url` so it cannot leak rows into other tests (see `DemoDataSeederIT`).
 - Concurrency: `concurrency/BookingConcurrencyScenarios` (20 threads race for one seat; overlapping multi-seat
-  holds; last use of a discount code; 10 payments for one booking; same idempotency key sent concurrently) runs on H2 (`BookingConcurrencyIT`) and on real MySQL (`BookingConcurrencyMySqlIT`) when `MYSQL_IT_URL`,
-  `MYSQL_IT_USERNAME`, `MYSQL_IT_PASSWORD` are set — use a dedicated schema such as `movie_booking_it`.
+  holds; last use of a discount code; 10 payments for one booking; same idempotency key sent concurrently; 5 concurrent
+  cancels) runs on H2 (`BookingConcurrencyIT`) and on real MySQL (`BookingConcurrencyMySqlIT`) when `MYSQL_IT_URL`,
+  `MYSQL_IT_USERNAME`, `MYSQL_IT_PASSWORD` are set — use a dedicated schema such as `movie_booking_it`. Any IT can run
+  on MySQL via `SPRING_DATASOURCE_URL`/`_USERNAME`/`_PASSWORD`/`_DRIVER_CLASS_NAME` env vars.
 - Time travel in tests: `@Import(MutableClockConfig.class)` and `MutableClock.advance(...)`.
   `support/TestData` builds users and a ready show (A-B regular, C premium) with unique names.
 - `journey/CustomerJourneyIT` walks the whole product through the HTTP API only (admin setup -> browse -> hold ->
@@ -179,8 +184,23 @@ Conventions:
 - Provider failures: `@MockitoSpyBean MockPaymentGateway` + `doReturn(...)` to simulate declines/refund failures.
 - Every new feature ships with tests; `./mvnw verify` must pass (incl. the coverage floor) before committing.
 
+## Documentation
+
+- `README.md` — features, how to run, configuration, design summary, **all assumptions**, testing, AI workflow.
+- `docs/DESIGN.md` — ER diagram, state machines, sequence diagrams (Mermaid), concurrency matrix, error catalogue.
+  Mermaid: no `;` inside sequence-diagram message text (it ends the statement).
+- `docs/HAPPY_FLOW.md` — curl walkthrough with real responses. `docs/API.md` — generated: refresh
+  `docs/openapi.json` from `/v3/api-docs`, then `python3 docs/generate_api_md.py`.
+- `docs/PLAN.md` — phase plan and decisions log.
+- New error codes go into the catalogue in `docs/DESIGN.md`; new assumptions into the README.
+
+## Workflow skills
+
+`.claude/skills/` holds the procedures used for every change: `add-api-endpoint` (the full checklist for a route),
+`verify-and-commit` (build, secret check, commit, push), `verify-on-mysql` (migrations and concurrency on real MySQL).
+
 ## Git workflow
 
 - Small, focused commits with clear messages (reviewers read the history).
-- Run `./mvnw clean verify` before committing.
+- Run `./mvnw verify` before committing (never `clean` while the app is running).
 - Keep this file and `README.md` up to date as design decisions are made.
