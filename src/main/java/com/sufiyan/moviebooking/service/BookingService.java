@@ -18,6 +18,7 @@ import com.sufiyan.moviebooking.repository.BookingRepository;
 import com.sufiyan.moviebooking.repository.BookingSeatRepository;
 import com.sufiyan.moviebooking.repository.DiscountCodeRepository;
 import com.sufiyan.moviebooking.repository.DiscountRedemptionRepository;
+import com.sufiyan.moviebooking.repository.RefundRepository;
 import com.sufiyan.moviebooking.repository.ShowPriceRepository;
 import com.sufiyan.moviebooking.repository.ShowRepository;
 import com.sufiyan.moviebooking.repository.ShowSeatRepository;
@@ -60,6 +61,7 @@ public class BookingService {
     private final DiscountCodeRepository discountCodeRepository;
     private final DiscountRedemptionRepository redemptionRepository;
     private final PricingService pricingService;
+    private final RefundRepository refundRepository;
     private final BookingProperties properties;
     private final Clock clock;
     private final ZoneId businessZone;
@@ -198,7 +200,13 @@ public class BookingService {
                 b.getAppliedPricingRules() == null ? List.of() : List.of(b.getAppliedPricingRules().split(", ")),
                 b.getSubtotalAmount(), b.getDiscountCode() == null ? null : b.getDiscountCode().getCode(),
                 b.getDiscountAmount(), b.getTotalAmount(), zoned(b.getHoldExpiresAt()),
-                b.getConfirmedAt() == null ? null : zoned(b.getConfirmedAt()), zoned(b.getCreatedAt()));
+                b.getConfirmedAt() == null ? null : zoned(b.getConfirmedAt()),
+                b.getCancelledAt() == null ? null : zoned(b.getCancelledAt()),
+                refundRepository.findByBookingId(bookingId)
+                        .map(r -> new BookingResponse.RefundInfo(r.getAmount(), r.getRefundPercent(), r.getReason(),
+                                r.getPolicyName()))
+                        .orElse(null),
+                zoned(b.getCreatedAt()));
     }
 
     private Booking requireActiveHold(Booking booking) {

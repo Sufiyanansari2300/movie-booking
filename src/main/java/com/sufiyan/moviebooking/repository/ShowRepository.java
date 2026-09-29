@@ -2,10 +2,12 @@ package com.sufiyan.moviebooking.repository;
 
 import com.sufiyan.moviebooking.entity.Show;
 import com.sufiyan.moviebooking.entity.ShowStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -24,6 +26,11 @@ public interface ShowRepository extends JpaRepository<Show, Long> {
               and s.startTime < :end and s.endTime > :start
             """)
     boolean existsOverlapping(@Param("screenId") Long screenId, @Param("start") Instant start, @Param("end") Instant end);
+
+    /** Locks the show row (used when cancelling a show). */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from Show s where s.id = :id")
+    Optional<Show> findByIdForUpdate(@Param("id") Long id);
 
     boolean existsByScreenId(Long screenId);
 

@@ -10,6 +10,7 @@ import com.sufiyan.moviebooking.entity.User;
 import com.sufiyan.moviebooking.repository.NotificationRepository;
 import com.sufiyan.moviebooking.security.AppUserPrincipal;
 import com.sufiyan.moviebooking.service.BookingService;
+import com.sufiyan.moviebooking.service.CancellationService;
 import com.sufiyan.moviebooking.service.PaymentService;
 import com.sufiyan.moviebooking.support.MutableClock;
 import com.sufiyan.moviebooking.support.MutableClockConfig;
@@ -75,6 +76,7 @@ class NotificationFlowIT {
     @Autowired private RecordingNotificationSender sender;
     @Autowired private BookingService bookingService;
     @Autowired private PaymentService paymentService;
+    @Autowired private CancellationService cancellationService;
     @Autowired private NotificationService notificationService;
     @Autowired private NotificationJobs jobs;
     @Autowired private NotificationRepository notificationRepository;
@@ -200,6 +202,20 @@ class NotificationFlowIT {
         Notification reminder = awaitNotification(paidBooking, NotificationType.SHOW_REMINDER, NotificationStatus.SENT);
         assertThat(reminder.getSubject()).startsWith("Reminder:");
         assertThat(notificationRepository.findByBookingIdOrderByCreatedAtAsc(unpaidBooking)).isEmpty();
+    }
+
+    @Test
+    void cancellation_sendsACancellationNoticeWithTheRefund() {
+        User user = data.user(Role.CUSTOMER);
+        long bookingId = hold(user, data.show(), "A1");
+        paymentService.pay(AppUserPrincipal.from(user), bookingId, key(), CARD);
+        awaitNotification(bookingId, NotificationType.BOOKING_CONFIRMED, NotificationStatus.SENT);
+
+        cancellationService.cancel(AppUserPrincipal.from(user), bookingId);
+
+        Notification notice = awaitNotification(bookingId, NotificationType.BOOKING_CANCELLED, NotificationStatus.SENT);
+        assertThat(notice.getSubject()).startsWith("Booking #" + bookingId + " cancelled");
+        assertThat(notice.getBody()).contains("cancelled as requested").contains("Refund:");
     }
 
     @Test

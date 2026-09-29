@@ -61,6 +61,14 @@ public class Booking extends BaseEntity {
     @Column(name = "confirmed_at")
     private Instant confirmedAt;
 
+    /** Refund policy in force when the booking was paid. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "refund_policy_id")
+    private RefundPolicy refundPolicy;
+
+    @Column(name = "cancelled_at")
+    private Instant cancelledAt;
+
     @Version
     @Column(nullable = false)
     private long version;
@@ -82,9 +90,15 @@ public class Booking extends BaseEntity {
         this.totalAmount = subtotalAmount.subtract(amount);
     }
 
-    public void confirm(Instant now) {
+    public void confirm(Instant now, RefundPolicy refundPolicy) {
         this.status = BookingStatus.CONFIRMED;
         this.confirmedAt = now;
+        this.refundPolicy = refundPolicy;
+    }
+
+    public void cancel(Instant now) {
+        this.status = BookingStatus.CANCELLED;
+        this.cancelledAt = now;
     }
 
     public void removeDiscount() {

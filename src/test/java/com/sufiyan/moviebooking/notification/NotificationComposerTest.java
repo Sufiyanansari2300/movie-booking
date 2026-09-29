@@ -3,6 +3,7 @@ package com.sufiyan.moviebooking.notification;
 import com.sufiyan.moviebooking.dto.BookingResponse;
 import com.sufiyan.moviebooking.entity.BookingStatus;
 import com.sufiyan.moviebooking.entity.NotificationType;
+import com.sufiyan.moviebooking.entity.RefundReason;
 import com.sufiyan.moviebooking.entity.SeatType;
 import org.junit.jupiter.api.Test;
 
@@ -21,7 +22,8 @@ class NotificationComposerTest {
                     new BookingResponse.SeatLine(2L, "A2", SeatType.REGULAR, new BigDecimal("220.00"), new BigDecimal("242.00"))),
             List.of("Prime time"), new BigDecimal("484.00"), "WELCOME10", new BigDecimal("48.40"),
             new BigDecimal("435.60"), OffsetDateTime.parse("2026-10-01T10:10:00+05:30"),
-            OffsetDateTime.parse("2026-10-01T10:05:00+05:30"), OffsetDateTime.parse("2026-10-01T10:00:00+05:30"));
+            OffsetDateTime.parse("2026-10-01T10:05:00+05:30"), null, null,
+            OffsetDateTime.parse("2026-10-01T10:00:00+05:30"));
 
     @Test
     void confirmation_hasAllBookingDetails() {
@@ -45,10 +47,42 @@ class NotificationComposerTest {
     }
 
     @Test
+    void customerCancellation_mentionsTheRefund() {
+        BookingResponse cancelled = withRefund(new BookingResponse.RefundInfo(new BigDecimal("217.80"),
+                new BigDecimal("50.00"), RefundReason.CUSTOMER_CANCELLATION, "Standard"));
+
+        var message = NotificationComposer.compose(NotificationType.BOOKING_CANCELLED, cancelled, "Alice", "INR");
+
+        assertThat(message.subject()).isEqualTo("Booking #42 cancelled: Oppenheimer");
+        assertThat(message.body()).contains("cancelled as requested")
+                .contains("Refund:   INR 217.80 (50%) to your original payment method");
+    }
+
+    @Test
+    void showCancellation_apologises_andZeroRefundIsExplained() {
+        var showCancelled = NotificationComposer.compose(NotificationType.BOOKING_CANCELLED,
+                withRefund(new BookingResponse.RefundInfo(new BigDecimal("435.60"), new BigDecimal("100"),
+                        RefundReason.SHOW_CANCELLED, null)), "Alice", "INR");
+        var noRefund = NotificationComposer.compose(NotificationType.BOOKING_CANCELLED,
+                withRefund(new BookingResponse.RefundInfo(BigDecimal.ZERO.setScale(2), BigDecimal.ZERO,
+                        RefundReason.CUSTOMER_CANCELLATION, "Standard")), "Alice", "INR");
+
+        assertThat(showCancelled.body()).contains("cancelled by the cinema").contains("INR 435.60 (100%)");
+        assertThat(noRefund.body()).contains("Refund:   none under the refund policy");
+    }
+
+    private BookingResponse withRefund(BookingResponse.RefundInfo refund) {
+        return new BookingResponse(booking.id(), BookingStatus.CANCELLED, booking.show(), booking.seats(),
+                booking.appliedPricingRules(), booking.subtotalAmount(), booking.discountCode(),
+                booking.discountAmount(), booking.totalAmount(), booking.holdExpiresAt(), booking.confirmedAt(),
+                OffsetDateTime.parse("2026-10-02T10:00:00+05:30"), refund, booking.createdAt());
+    }
+
+    @Test
     void confirmationWithoutDiscount_hasNoDiscountNote() {
         BookingResponse plain = new BookingResponse(1L, BookingStatus.CONFIRMED, booking.show(), booking.seats(),
                 List.of(), new BigDecimal("440.00"), null, BigDecimal.ZERO, new BigDecimal("440.00"),
-                booking.holdExpiresAt(), booking.confirmedAt(), booking.createdAt());
+                booking.holdExpiresAt(), booking.confirmedAt(), null, null, booking.createdAt());
 
         assertThat(NotificationComposer.compose(NotificationType.BOOKING_CONFIRMED, plain, "Bob", "INR").body())
                 .contains("Paid:     INR 440.00\n").doesNotContain("code");

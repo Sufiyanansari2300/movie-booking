@@ -44,6 +44,17 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     boolean existsByDiscountCodeId(Long discountCodeId);
 
+    boolean existsByRefundPolicyId(Long refundPolicyId);
+
+    /** Bookings of a show still to be processed by a show cancellation (confirmed ones and open holds). */
+    @Query("""
+            select b.id from Booking b where b.show.id = :showId
+              and b.status in (com.sufiyan.moviebooking.entity.BookingStatus.CONFIRMED,
+                               com.sufiyan.moviebooking.entity.BookingStatus.HELD)
+            order by b.id
+            """)
+    List<Long> findOpenIdsByShow(@Param("showId") Long showId);
+
     /** An unexpired hold of this user on this show (one active hold per user per show). */
     @Query("""
             select count(b) > 0 from Booking b

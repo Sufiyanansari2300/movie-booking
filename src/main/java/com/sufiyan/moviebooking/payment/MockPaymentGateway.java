@@ -8,7 +8,7 @@ import java.util.UUID;
 /**
  * Simulated payment provider. The payment token decides the outcome so every path can be demoed and tested:
  * {@code tok_declined} / {@code tok_insufficient_funds} are declined, {@code tok_error} is a provider failure,
- * anything else (e.g. {@code tok_success}) succeeds.
+ * anything else (e.g. {@code tok_success}) succeeds. Refunds always succeed.
  */
 @Slf4j
 @Component
@@ -26,5 +26,12 @@ public class MockPaymentGateway implements PaymentGateway {
         log.info("Mock charge of {} {} for booking {} via {}: {}", request.amount(), request.currency(),
                 request.bookingId(), request.method(), result.outcome());
         return result;
+    }
+
+    @Override
+    public RefundResult refund(RefundRequest request) {
+        log.info("Mock refund of {} {} for booking {} (charge {})", request.amount(), request.currency(),
+                request.bookingId(), request.chargeReference());
+        return new RefundResult(true, "mock_refund_" + UUID.randomUUID(), null);
     }
 }

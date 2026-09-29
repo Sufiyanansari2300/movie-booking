@@ -2,6 +2,7 @@ package com.sufiyan.moviebooking.notification;
 
 import com.sufiyan.moviebooking.dto.BookingResponse;
 import com.sufiyan.moviebooking.entity.NotificationType;
+import com.sufiyan.moviebooking.entity.RefundReason;
 
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
@@ -59,11 +60,31 @@ public final class NotificationComposer {
                     """
                     Hi %s,
 
-                    Your booking for %s on %s (seats %s) has been cancelled.
+                    %s
+
+                    Movie:    %s
+                    When:     %s
+                    Seats:    %s
+                    %s
 
                     Booking reference: #%d."""
-                            .formatted(customerName, movie, when, seats, b.id()));
+                            .formatted(customerName, cancellationLine(b), movie, when, seats,
+                                    refundLine(b, currency), b.id()));
         };
+    }
+
+    private static String cancellationLine(BookingResponse b) {
+        return b.refund() != null && b.refund().reason() == RefundReason.SHOW_CANCELLED
+                ? "We are sorry: this show has been cancelled by the cinema, so your booking is cancelled."
+                : "Your booking has been cancelled as requested.";
+    }
+
+    private static String refundLine(BookingResponse b, String currency) {
+        if (b.refund() == null || b.refund().amount().signum() == 0) {
+            return "Refund:   none under the refund policy for this cancellation time";
+        }
+        return "Refund:   " + currency + " " + b.refund().amount().toPlainString() + " ("
+                + b.refund().refundPercent().stripTrailingZeros().toPlainString() + "%) to your original payment method";
     }
 
     private static String discountNote(BookingResponse b, String currency) {

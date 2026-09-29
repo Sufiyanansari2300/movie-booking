@@ -74,6 +74,13 @@ public class ShowSeat extends BaseEntity {
         this.holdExpiresAt = null;
     }
 
+    /** Back to sale after a cancellation. */
+    public void release() {
+        this.status = ShowSeatStatus.AVAILABLE;
+        this.booking = null;
+        this.holdExpiresAt = null;
+    }
+
     public void hold(Booking booking, Instant expiresAt) {
         this.status = ShowSeatStatus.HELD;
         this.booking = booking;

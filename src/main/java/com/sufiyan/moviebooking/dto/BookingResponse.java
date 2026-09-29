@@ -1,6 +1,7 @@
 package com.sufiyan.moviebooking.dto;
 
 import com.sufiyan.moviebooking.entity.BookingStatus;
+import com.sufiyan.moviebooking.entity.RefundReason;
 import com.sufiyan.moviebooking.entity.SeatType;
 
 import java.math.BigDecimal;
@@ -19,7 +20,13 @@ public record BookingResponse(
         BigDecimal totalAmount,
         OffsetDateTime holdExpiresAt,
         OffsetDateTime confirmedAt,
+        OffsetDateTime cancelledAt,
+        RefundInfo refund,
         OffsetDateTime createdAt) {
+
+    /** Present once a confirmed booking was cancelled. */
+    public record RefundInfo(BigDecimal amount, BigDecimal refundPercent, RefundReason reason, String policyName) {
+    }
 
     public record ShowInfo(Long id, String movieTitle, String theaterName, String screenName, OffsetDateTime startTime) {
     }

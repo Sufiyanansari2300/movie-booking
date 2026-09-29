@@ -16,9 +16,11 @@ import com.sufiyan.moviebooking.repository.BookingRepository;
 import com.sufiyan.moviebooking.repository.BookingSeatRepository;
 import com.sufiyan.moviebooking.repository.DiscountCodeRepository;
 import com.sufiyan.moviebooking.repository.PaymentRepository;
+import com.sufiyan.moviebooking.repository.RefundRepository;
 import com.sufiyan.moviebooking.repository.ShowSeatRepository;
 import com.sufiyan.moviebooking.security.AppUserPrincipal;
 import com.sufiyan.moviebooking.service.BookingService;
+import com.sufiyan.moviebooking.service.CancellationService;
 import com.sufiyan.moviebooking.service.PaymentService;
 import com.sufiyan.moviebooking.support.TestData.ShowFixture;
 import com.sufiyan.moviebooking.support.TestData;
@@ -54,6 +56,8 @@ abstract class BookingConcurrencyScenarios {
     @Autowired private BookingSeatRepository bookingSeatRepository;
     @Autowired private ShowSeatRepository showSeatRepository;
     @Autowired private PaymentService paymentService;
+    @Autowired private CancellationService cancellationService;
+    @Autowired private RefundRepository refundRepository;
     @Autowired private PaymentRepository paymentRepository;
     @Autowired private DiscountCodeRepository discountCodeRepository;
 
@@ -186,6 +190,27 @@ abstract class BookingConcurrencyScenarios {
         assertThat(outcomes).allSatisfy(o -> assertThat(o.won()).as(o.errorCode()).isTrue());
         assertThat(outcomes.stream().map(Outcome::bookingId).distinct()).as("same payment id for all").hasSize(1);
         assertThat(paymentRepository.countByBookingId(bookingId)).isEqualTo(1);
+    }
+
+    /** The customer taps "cancel" several times at once: one cancellation, one refund. */
+    @Test
+    void concurrentCancellationsOfOneBooking_refundExactlyOnce() throws Exception {
+        TestData data = new TestData(ctx);
+        ShowFixture show = data.show();
+        User user = data.user(Role.CUSTOMER);
+        AppUserPrincipal principal = AppUserPrincipal.from(user);
+        long bookingId = bookingService.hold(user.getId(), show.showId(), List.of(show.seat("A1"))).id();
+        paymentService.pay(principal, bookingId, "k-" + UUID.randomUUID(), CARD);
+
+        List<Outcome> outcomes = runConcurrently(Collections.nCopies(5, (Callable<Long>) () ->
+                cancellationService.cancel(principal, bookingId).id()));
+
+        assertThat(outcomes).filteredOn(Outcome::won).hasSize(1);
+        assertThat(outcomes).filteredOn(o -> !o.won()).hasSize(4)
+                .allSatisfy(o -> assertThat(o.errorCode()).isEqualTo("BOOKING_ALREADY_CANCELLED"));
+        assertThat(refundRepository.findByBookingId(bookingId)).isPresent();
+        assertThat(showSeatRepository.findById(show.seat("A1")).orElseThrow().getStatus())
+                .isEqualTo(ShowSeatStatus.AVAILABLE);
     }
 
     /** Id of the booking that currently holds the seat (reading a lazy proxy's id needs no session). */

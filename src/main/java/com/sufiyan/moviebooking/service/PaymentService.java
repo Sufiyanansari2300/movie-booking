@@ -13,6 +13,7 @@ import com.sufiyan.moviebooking.entity.PaymentMethod;
 import com.sufiyan.moviebooking.entity.PaymentStatus;
 import com.sufiyan.moviebooking.entity.ShowSeat;
 import com.sufiyan.moviebooking.entity.ShowSeatStatus;
+import com.sufiyan.moviebooking.entity.ShowStatus;
 import com.sufiyan.moviebooking.event.BookingConfirmedEvent;
 import com.sufiyan.moviebooking.exception.BadRequestException;
 import com.sufiyan.moviebooking.exception.ConflictException;
@@ -25,6 +26,7 @@ import com.sufiyan.moviebooking.repository.BookingSeatRepository;
 import com.sufiyan.moviebooking.repository.DiscountCodeRepository;
 import com.sufiyan.moviebooking.repository.DiscountRedemptionRepository;
 import com.sufiyan.moviebooking.repository.PaymentRepository;
+import com.sufiyan.moviebooking.repository.RefundPolicyRepository;
 import com.sufiyan.moviebooking.repository.ShowSeatRepository;
 import com.sufiyan.moviebooking.security.AppUserPrincipal;
 import lombok.RequiredArgsConstructor;
@@ -67,6 +69,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final DiscountCodeRepository discountCodeRepository;
     private final DiscountRedemptionRepository redemptionRepository;
+    private final RefundPolicyRepository refundPolicyRepository;
     private final BookingService bookingService;
     private final PaymentGateway gateway;
     private final ApplicationEventPublisher events;
@@ -107,6 +110,9 @@ public class PaymentService {
         if (booking.getStatus() != BookingStatus.HELD) {
             throw new ConflictException("BOOKING_NOT_HELD", "Only a held booking can be paid (status: "
                     + booking.getStatus() + ")");
+        }
+        if (booking.getShow().getStatus() != ShowStatus.SCHEDULED) {
+            throw new ConflictException("SHOW_CANCELLED", "This show has been cancelled");
         }
         if (booking.isHoldExpired(now)) {
             throw new ConflictException("HOLD_EXPIRED", "The seat hold has expired; hold the seats again");
@@ -165,7 +171,8 @@ public class PaymentService {
     }
 
     private void confirm(Booking booking, DiscountCode code, Instant now) {
-        booking.confirm(now);
+        // Freeze the refund policy in force now: later policy changes never apply to this booking.
+        booking.confirm(now, refundPolicyRepository.findFirstByActiveTrue().orElse(null));
         if (code != null) {
             code.setUsedCount(code.getUsedCount() + 1);
             redemptionRepository.save(new DiscountRedemption(code, booking, booking.getUser(), booking.getDiscountAmount()));

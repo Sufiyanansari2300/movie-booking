@@ -41,11 +41,19 @@ public class Show extends BaseEntity {
     @Column(nullable = false, length = 20)
     private ShowStatus status;
 
+    @Column(name = "cancellation_reason")
+    private String cancellationReason;
+
     public Show(Movie movie, Screen screen, Instant startTime, Instant endTime) {
         this.movie = movie;
         this.screen = screen;
         this.startTime = startTime;
         this.endTime = endTime;
         this.status = ShowStatus.SCHEDULED;
+    }
+
+    public void cancel(String reason) {
+        this.status = ShowStatus.CANCELLED;
+        this.cancellationReason = reason;
     }
 }

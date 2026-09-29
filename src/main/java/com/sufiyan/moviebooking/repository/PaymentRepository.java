@@ -1,6 +1,7 @@
 package com.sufiyan.moviebooking.repository;
 
 import com.sufiyan.moviebooking.entity.Payment;
+import com.sufiyan.moviebooking.entity.PaymentStatus;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -15,4 +16,6 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     List<Payment> findByBookingIdOrderByCreatedAtAsc(Long bookingId);
 
     long countByBookingId(Long bookingId);
+
+    Optional<Payment> findFirstByBookingIdAndStatus(Long bookingId, PaymentStatus status);
 }

@@ -12,6 +12,9 @@ public interface PaymentGateway {
 
     ChargeResult charge(ChargeRequest request);
 
+    /** Refunds (part of) a previous successful charge. */
+    RefundResult refund(RefundRequest request);
+
     /**
      * @param idempotencyKey forwarded so a real provider can also de-duplicate retries
      * @param paymentToken   opaque token for the payment instrument (never raw card data)
@@ -33,6 +36,13 @@ public interface PaymentGateway {
         public static ChargeResult error(String reason) {
             return new ChargeResult(Outcome.ERROR, null, "GATEWAY_ERROR", reason);
         }
+    }
+
+    record RefundRequest(Long bookingId, String chargeReference, BigDecimal amount, String currency,
+                         String idempotencyKey) {
+    }
+
+    record RefundResult(boolean succeeded, String refundReference, String failureReason) {
     }
 
     enum Outcome {
