@@ -5,8 +5,12 @@ import com.sufiyan.moviebooking.entity.BookingStatus;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.QueryHint;
 import org.springframework.data.domain.Limit;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -17,7 +21,13 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
-public interface BookingRepository extends JpaRepository<Booking, Long> {
+public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpecificationExecutor<Booking> {
+
+    /** Specification search that also fetches what history rows display (avoids N+1). */
+    @Override
+    @EntityGraph(attributePaths = {"user", "show", "show.movie", "show.screen", "show.screen.theater",
+            "show.screen.theater.city", "discountCode"})
+    Page<Booking> findAll(Specification<Booking> spec, Pageable pageable);
 
     @EntityGraph(attributePaths = {"user", "show", "show.movie", "show.screen", "show.screen.theater", "discountCode"})
     Optional<Booking> findDetailedById(Long id);
@@ -45,6 +55,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     boolean existsByDiscountCodeId(Long discountCodeId);
 
     boolean existsByRefundPolicyId(Long refundPolicyId);
+
+    long countByShowIdAndStatus(Long showId, BookingStatus status);
 
     /** Bookings of a show still to be processed by a show cancellation (confirmed ones and open holds). */
     @Query("""

@@ -24,6 +24,10 @@ public interface ShowSeatRepository extends JpaRepository<ShowSeat, Long> {
 
     boolean existsByShowIdAndStatusNot(Long showId, ShowSeatStatus status);
 
+    long countByShowId(Long showId);
+
+    long countByShowIdAndStatus(Long showId, ShowSeatStatus status);
+
     /**
      * Row-locks the requested seats of a show ({@code SELECT ... FOR UPDATE}). Locks are taken in id order so
      * two overlapping requests always lock in the same sequence and cannot deadlock.

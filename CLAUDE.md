@@ -132,6 +132,9 @@ Conventions:
   locks the booking row, refunds through `PaymentGateway.refund` (failure = nothing changes, 502), releases seats,
   publishes `BookingCancelledEvent`. Show cancellation: mark show CANCELLED first, then settle each booking in its
   own transaction (100% refund / release hold); re-running resumes. Payment rejects non-SCHEDULED shows.
+- Lists with optional filters use JPA Specifications (`BookingSpecifications`, null = no filter) with an
+  `@EntityGraph` on the overridden `findAll(Specification, Pageable)`, then batch-load children for the page
+  (`findByBookingIdIn`) — never one query per row. Status filters use the *effective* status (overdue HELD = EXPIRED).
 - Notifications: react to domain events with `@Async(AsyncConfig.NOTIFICATION_EXECUTOR)` +
   `@TransactionalEventListener(AFTER_COMMIT)` — never send from inside a booking/payment transaction.
   `NotificationService.notify` records first (unique booking+type = idempotent), calls the `NotificationSender`

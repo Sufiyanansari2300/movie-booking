@@ -316,6 +316,24 @@ Authorization: Bearer {{customerToken}}
 GET {{baseUrl}}/api/bookings/{{bookingId}}/notifications
 Authorization: Bearer {{customerToken}}
 
+### ---------- Booking history ----------
+
+### My bookings, newest first
+GET {{baseUrl}}/api/bookings/me
+Authorization: Bearer {{customerToken}}
+
+### My upcoming confirmed bookings, soonest show first
+GET {{baseUrl}}/api/bookings/me?status=CONFIRMED&when=UPCOMING&sort=show.startTime,asc
+Authorization: Bearer {{customerToken}}
+
+### Admin: bookings of the show
+GET {{baseUrl}}/api/admin/bookings?showId={{showId}}
+Authorization: Bearer {{adminToken}}
+
+### Admin: occupancy and revenue of the show
+GET {{baseUrl}}/api/admin/shows/{{showId}}/sales
+Authorization: Bearer {{adminToken}}
+
 ### WARNING - cancels the whole show: full refund for every paid booking, holds released
 POST {{baseUrl}}/api/admin/shows/{{showId}}/cancel
 Authorization: Bearer {{adminToken}}

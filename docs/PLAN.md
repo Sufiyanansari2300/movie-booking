@@ -70,6 +70,6 @@ POST   /api/bookings/{id}/cancel         refund per policy, seats AVAILABLE
 | 6 | Mock payment gateway, idempotent pay + confirmation, discount usage consumed under a row lock, payment race tests (H2 + MySQL) | Done |
 | 7 | Async after-commit notifications (confirmation), reminder job, retries, notification history | Done |
 | 8 | Refund policies (time bands, frozen per booking), customer cancellation + refund quote, admin show cancellation (resumable), cancellation notices | Done |
-| 9 | Booking history (pagination and Swagger already done) | |
+| 9 | Booking history (/api/bookings/me: status, upcoming/past, sort), admin booking search, show sales summary | Done |
 | 10 | Test hardening | |
 | 11 | README, seed data, `.http` requests, video | |
