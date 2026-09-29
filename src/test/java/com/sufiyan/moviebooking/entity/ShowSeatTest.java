@@ -12,7 +12,7 @@ class ShowSeatTest {
     private static final Instant NOW = Instant.parse("2026-10-01T10:00:00Z");
 
     private final ShowSeat seat = new ShowSeat(null, null);
-    private final Booking booking = new Booking(null, null, NOW.plusSeconds(600), BigDecimal.TEN);
+    private final Booking booking = new Booking(null, null, NOW.plusSeconds(600), BigDecimal.TEN, null);
 
     @Test
     void availableSeat_isHoldable() {

@@ -12,32 +12,32 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
+/** Records that a confirmed booking used a discount code (written at payment confirmation). */
 @Getter
 @Entity
-@Table(name = "booking_seats")
+@Table(name = "discount_redemptions")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class BookingSeat extends BaseEntity {
+public class DiscountRedemption extends BaseEntity {
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "discount_code_id", nullable = false)
+    private DiscountCode discountCode;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "booking_id", nullable = false)
     private Booking booking;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "show_seat_id", nullable = false)
-    private ShowSeat showSeat;
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
-    /** Show's base price for the seat type at hold time. */
-    @Column(name = "base_price", nullable = false, precision = 10, scale = 2)
-    private BigDecimal basePrice;
-
-    /** Price charged after pricing rules. */
     @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal price;
+    private BigDecimal amount;
 
-    public BookingSeat(Booking booking, ShowSeat showSeat, BigDecimal basePrice, BigDecimal price) {
+    public DiscountRedemption(DiscountCode discountCode, Booking booking, User user, BigDecimal amount) {
+        this.discountCode = discountCode;
         this.booking = booking;
-        this.showSeat = showSeat;
-        this.basePrice = basePrice;
-        this.price = price;
+        this.user = user;
+        this.amount = amount;
     }
 }

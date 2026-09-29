@@ -7,6 +7,7 @@ import com.sufiyan.moviebooking.dto.SeatMapResponse;
 import com.sufiyan.moviebooking.dto.ShowResponse;
 import com.sufiyan.moviebooking.dto.UpdateShowPricesRequest;
 import com.sufiyan.moviebooking.entity.Movie;
+import com.sufiyan.moviebooking.entity.PricingRule;
 import com.sufiyan.moviebooking.entity.Screen;
 import com.sufiyan.moviebooking.entity.Seat;
 import com.sufiyan.moviebooking.entity.SeatType;
@@ -60,6 +61,7 @@ public class ShowService {
     private final SeatRepository seatRepository;
     private final BookingRepository bookingRepository;
     private final MovieService movieService;
+    private final PricingService pricingService;
     private final ShowProperties showProperties;
     private final Clock clock;
     private final ZoneId businessZone;
@@ -143,6 +145,7 @@ public class ShowService {
     public SeatMapResponse seatMap(Long showId) {
         Show show = getEntity(showId);
         Map<SeatType, BigDecimal> prices = pricesOf(showId);
+        PricingService.Quote quote = pricingService.quote(show.getStartTime(), prices);
         Map<ShowSeatStatus, Long> summary = new EnumMap<>(ShowSeatStatus.class);
         for (ShowSeatStatus status : ShowSeatStatus.values()) {
             summary.put(status, 0L);
@@ -155,12 +158,14 @@ public class ShowService {
         }
         List<SeatMapResponse.Row> rows = byRow.entrySet().stream().map(e -> {
             SeatType type = e.getValue().getFirst().getSeat().getSeatType();
-            return new SeatMapResponse.Row(e.getKey(), type, prices.get(type), e.getValue().stream()
+            return new SeatMapResponse.Row(e.getKey(), type, prices.get(type), quote.effectivePrices().get(type),
+                    e.getValue().stream()
                     .map(ss -> new SeatMapResponse.SeatStatus(ss.getId(), ss.getSeat().getLabel(),
                             ss.getSeat().getSeatNumber(), ss.effectiveStatus(now)))
                     .toList());
         }).toList();
-        return new SeatMapResponse(show.getId(), toZoned(show.getStartTime()), show.getScreen().getName(), summary, rows);
+        return new SeatMapResponse(show.getId(), toZoned(show.getStartTime()), show.getScreen().getName(), summary,
+                quote.appliedRules(), rows);
     }
 
     Show getEntity(Long showId) {
@@ -210,18 +215,21 @@ public class ShowService {
                 .put(p.getSeatType(), p.getPrice()));
         Map<Long, Long> available = showSeatRepository.countHoldableByShow(ids, clock.instant()).stream()
                 .collect(Collectors.toMap(r -> (Long) r[0], r -> (Long) r[1]));
+        List<PricingRule> rules = pricingService.activeRules();
 
         return shows.stream().map(s -> {
             Movie m = s.getMovie();
             Theater t = s.getScreen().getTheater();
+            Map<SeatType, BigDecimal> base = prices.getOrDefault(s.getId(), Map.of());
+            PricingService.Quote quote = pricingService.quote(s.getStartTime(), base, rules);
             return new ShowResponse(s.getId(),
                     new ShowResponse.MovieSummary(m.getId(), m.getTitle(), m.getLanguage(), m.getDurationMinutes(),
                             m.getCertificate()),
                     new ShowResponse.TheaterSummary(t.getId(), t.getName(), t.getAddress(), t.getCity().getId(),
                             t.getCity().getName()),
                     new ShowResponse.ScreenSummary(s.getScreen().getId(), s.getScreen().getName()),
-                    toZoned(s.getStartTime()), toZoned(s.getEndTime()), s.getStatus(),
-                    prices.getOrDefault(s.getId(), Map.of()), available.getOrDefault(s.getId(), 0L));
+                    toZoned(s.getStartTime()), toZoned(s.getEndTime()), s.getStatus(), base,
+                    quote.effectivePrices(), quote.appliedRules(), available.getOrDefault(s.getId(), 0L));
         }).toList();
     }
 

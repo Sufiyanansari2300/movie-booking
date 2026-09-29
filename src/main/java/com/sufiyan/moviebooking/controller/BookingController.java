@@ -1,6 +1,7 @@
 package com.sufiyan.moviebooking.controller;
 
 import com.sufiyan.moviebooking.config.OpenApiConfig;
+import com.sufiyan.moviebooking.dto.ApplyDiscountRequest;
 import com.sufiyan.moviebooking.dto.BookingResponse;
 import com.sufiyan.moviebooking.dto.HoldSeatsRequest;
 import com.sufiyan.moviebooking.security.AppUserPrincipal;
@@ -42,6 +43,19 @@ public class BookingController {
     @DeleteMapping("/bookings/{id}/hold")
     public BookingResponse release(@AuthenticationPrincipal AppUserPrincipal caller, @PathVariable Long id) {
         return bookingService.release(caller, id);
+    }
+
+    @Operation(summary = "Apply a discount code to a held booking (replaces any previous code)")
+    @PostMapping("/bookings/{id}/discount")
+    public BookingResponse applyDiscount(@AuthenticationPrincipal AppUserPrincipal caller, @PathVariable Long id,
+                                         @Valid @RequestBody ApplyDiscountRequest request) {
+        return bookingService.applyDiscount(caller, id, request.code());
+    }
+
+    @Operation(summary = "Remove the discount code from a held booking")
+    @DeleteMapping("/bookings/{id}/discount")
+    public BookingResponse removeDiscount(@AuthenticationPrincipal AppUserPrincipal caller, @PathVariable Long id) {
+        return bookingService.removeDiscount(caller, id);
     }
 
     @Operation(summary = "Get one of your bookings (admins can see any)")

@@ -14,9 +14,11 @@ public record SeatMapResponse(
         OffsetDateTime startTime,
         String screenName,
         Map<ShowSeatStatus, Long> summary,
+        List<String> appliedPricingRules,
         List<Row> rows) {
 
-    public record Row(String row, SeatType seatType, BigDecimal price, List<SeatStatus> seats) {
+    /** {@code price} is what a seat in this row costs now (after pricing rules). */
+    public record Row(String row, SeatType seatType, BigDecimal basePrice, BigDecimal price, List<SeatStatus> seats) {
     }
 
     public record SeatStatus(Long showSeatId, String label, int number, ShowSeatStatus status) {

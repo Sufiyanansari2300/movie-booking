@@ -5,6 +5,7 @@ import com.sufiyan.moviebooking.dto.BookingResponse;
 import com.sufiyan.moviebooking.entity.Booking;
 import com.sufiyan.moviebooking.entity.BookingSeat;
 import com.sufiyan.moviebooking.entity.BookingStatus;
+import com.sufiyan.moviebooking.entity.DiscountCode;
 import com.sufiyan.moviebooking.entity.SeatType;
 import com.sufiyan.moviebooking.entity.Show;
 import com.sufiyan.moviebooking.entity.ShowSeat;
@@ -15,6 +16,8 @@ import com.sufiyan.moviebooking.exception.ConflictException;
 import com.sufiyan.moviebooking.exception.ResourceNotFoundException;
 import com.sufiyan.moviebooking.repository.BookingRepository;
 import com.sufiyan.moviebooking.repository.BookingSeatRepository;
+import com.sufiyan.moviebooking.repository.DiscountCodeRepository;
+import com.sufiyan.moviebooking.repository.DiscountRedemptionRepository;
 import com.sufiyan.moviebooking.repository.ShowPriceRepository;
 import com.sufiyan.moviebooking.repository.ShowRepository;
 import com.sufiyan.moviebooking.repository.ShowSeatRepository;
@@ -54,6 +57,9 @@ public class BookingService {
     private final ShowRepository showRepository;
     private final ShowPriceRepository showPriceRepository;
     private final UserRepository userRepository;
+    private final DiscountCodeRepository discountCodeRepository;
+    private final DiscountRedemptionRepository redemptionRepository;
+    private final PricingService pricingService;
     private final BookingProperties properties;
     private final Clock clock;
     private final ZoneId businessZone;
@@ -89,19 +95,24 @@ public class BookingService {
             throw new ConflictException("SEATS_UNAVAILABLE", "Seats no longer available: " + String.join(", ", taken));
         }
 
-        Map<SeatType, BigDecimal> prices = new EnumMap<>(SeatType.class);
-        showPriceRepository.findByShowId(showId).forEach(p -> prices.put(p.getSeatType(), p.getPrice()));
-        BigDecimal total = seats.stream().map(s -> prices.get(s.getSeat().getSeatType()))
+        // Seat prices are fixed at hold time: base price per seat type, then the active pricing rules.
+        Map<SeatType, BigDecimal> basePrices = new EnumMap<>(SeatType.class);
+        showPriceRepository.findByShowId(showId).forEach(p -> basePrices.put(p.getSeatType(), p.getPrice()));
+        PricingService.Quote quote = pricingService.quote(show.getStartTime(), basePrices);
+        BigDecimal subtotal = seats.stream().map(s -> quote.effectivePrices().get(s.getSeat().getSeatType()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         User user = userRepository.getReferenceById(userId);
         Instant expiresAt = now.plus(properties.holdDuration());
-        Booking booking = bookingRepository.save(new Booking(user, show, expiresAt, total));
+        String rules = quote.appliedRules().isEmpty() ? null : String.join(", ", quote.appliedRules());
+        Booking booking = bookingRepository.save(new Booking(user, show, expiresAt, subtotal, rules));
         for (ShowSeat seat : seats) {
             // A seat whose previous hold expired but was not swept yet is simply taken over; the sweeper only
             // releases seats still pointing at the expired booking, so it cannot undo this hold.
             seat.hold(booking, expiresAt);
-            bookingSeatRepository.save(new BookingSeat(booking, seat, prices.get(seat.getSeat().getSeatType())));
+            SeatType type = seat.getSeat().getSeatType();
+            bookingSeatRepository.save(new BookingSeat(booking, seat, basePrices.get(type),
+                    quote.effectivePrices().get(type)));
         }
         log.info("Booking {} held {} seat(s) of show {} for user {} until {}", booking.getId(), seats.size(), showId,
                 userId, expiresAt);
@@ -120,6 +131,31 @@ public class BookingService {
         if (bookingRepository.endHold(bookingId, BookingStatus.RELEASED, now) == 1) {
             showSeatRepository.releaseHeldByBooking(bookingId, now);
         }
+        return get(bookingId);
+    }
+
+    /**
+     * Applies a discount code to a held booking (replacing any previous one). The code is validated now; its
+     * usage count is consumed only when the booking is confirmed, under a row lock on the code.
+     */
+    @Transactional
+    public BookingResponse applyDiscount(AppUserPrincipal caller, Long bookingId, String rawCode) {
+        Booking booking = requireActiveHold(getOwned(caller, bookingId));
+        String code = DiscountCodeService.normalize(rawCode);
+        DiscountCode discount = discountCodeRepository.findByCode(code)
+                .orElseThrow(() -> new BadRequestException("DISCOUNT_NOT_FOUND", "Unknown discount code: " + code));
+        long userUses = redemptionRepository.countByDiscountCodeIdAndUserId(discount.getId(), booking.getUser().getId());
+        DiscountCalculator.validate(discount, booking.getSubtotalAmount(), clock.instant(), userUses);
+        booking.applyDiscount(discount, DiscountCalculator.discountFor(discount, booking.getSubtotalAmount()));
+        bookingRepository.flush();
+        return get(bookingId);
+    }
+
+    @Transactional
+    public BookingResponse removeDiscount(AppUserPrincipal caller, Long bookingId) {
+        Booking booking = requireActiveHold(getOwned(caller, bookingId));
+        booking.removeDiscount();
+        bookingRepository.flush();
         return get(bookingId);
     }
 
@@ -151,14 +187,28 @@ public class BookingService {
         Show show = b.getShow();
         List<BookingResponse.SeatLine> seats = bookingSeatRepository.findByBookingId(bookingId).stream()
                 .map(bs -> new BookingResponse.SeatLine(bs.getShowSeat().getId(), bs.getShowSeat().getSeat().getLabel(),
-                        bs.getShowSeat().getSeat().getSeatType(), bs.getPrice()))
+                        bs.getShowSeat().getSeat().getSeatType(), bs.getBasePrice(), bs.getPrice()))
                 .toList();
         // A hold past its expiry is reported as EXPIRED even before the sweeper has run.
         BookingStatus status = b.isHoldExpired(clock.instant()) ? BookingStatus.EXPIRED : b.getStatus();
         return new BookingResponse(b.getId(), status,
                 new BookingResponse.ShowInfo(show.getId(), show.getMovie().getTitle(),
                         show.getScreen().getTheater().getName(), show.getScreen().getName(), zoned(show.getStartTime())),
-                seats, b.getTotalAmount(), zoned(b.getHoldExpiresAt()), zoned(b.getCreatedAt()));
+                seats,
+                b.getAppliedPricingRules() == null ? List.of() : List.of(b.getAppliedPricingRules().split(", ")),
+                b.getSubtotalAmount(), b.getDiscountCode() == null ? null : b.getDiscountCode().getCode(),
+                b.getDiscountAmount(), b.getTotalAmount(), zoned(b.getHoldExpiresAt()), zoned(b.getCreatedAt()));
+    }
+
+    private Booking requireActiveHold(Booking booking) {
+        if (booking.getStatus() != BookingStatus.HELD) {
+            throw new ConflictException("BOOKING_NOT_HELD", "Only a held booking can be changed (status: "
+                    + booking.getStatus() + ")");
+        }
+        if (booking.isHoldExpired(clock.instant())) {
+            throw new ConflictException("HOLD_EXPIRED", "The seat hold has expired; hold the seats again");
+        }
+        return booking;
     }
 
     /** Customers see only their own bookings; admins see all. Others get 404 so ids cannot be probed. */

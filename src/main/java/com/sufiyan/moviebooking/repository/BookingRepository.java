@@ -15,10 +15,12 @@ import java.util.Optional;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
 
-    @EntityGraph(attributePaths = {"user", "show", "show.movie", "show.screen", "show.screen.theater"})
+    @EntityGraph(attributePaths = {"user", "show", "show.movie", "show.screen", "show.screen.theater", "discountCode"})
     Optional<Booking> findDetailedById(Long id);
 
     boolean existsByShowId(Long showId);
+
+    boolean existsByDiscountCodeId(Long discountCodeId);
 
     /** An unexpired hold of this user on this show (one active hold per user per show). */
     @Query("""

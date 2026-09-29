@@ -39,20 +39,48 @@ public class Booking extends BaseEntity {
     @Column(name = "hold_expires_at", nullable = false)
     private Instant holdExpiresAt;
 
-    @Setter
+    /** Sum of seat prices after pricing rules. */
+    @Column(name = "subtotal_amount", nullable = false, precision = 10, scale = 2)
+    private BigDecimal subtotalAmount;
+
+    @Column(name = "discount_amount", nullable = false, precision = 10, scale = 2)
+    private BigDecimal discountAmount;
+
+    /** subtotal - discount; what the customer pays. */
     @Column(name = "total_amount", nullable = false, precision = 10, scale = 2)
     private BigDecimal totalAmount;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "discount_code_id")
+    private DiscountCode discountCode;
+
+    /** Names of the pricing rules applied when the seats were priced, comma separated. */
+    @Column(name = "applied_pricing_rules")
+    private String appliedPricingRules;
 
     @Version
     @Column(nullable = false)
     private long version;
 
-    public Booking(User user, Show show, Instant holdExpiresAt, BigDecimal totalAmount) {
+    public Booking(User user, Show show, Instant holdExpiresAt, BigDecimal subtotalAmount, String appliedPricingRules) {
         this.user = user;
         this.show = show;
         this.status = BookingStatus.HELD;
         this.holdExpiresAt = holdExpiresAt;
-        this.totalAmount = totalAmount;
+        this.subtotalAmount = subtotalAmount;
+        this.discountAmount = BigDecimal.ZERO;
+        this.totalAmount = subtotalAmount;
+        this.appliedPricingRules = appliedPricingRules;
+    }
+
+    public void applyDiscount(DiscountCode code, BigDecimal amount) {
+        this.discountCode = code;
+        this.discountAmount = amount;
+        this.totalAmount = subtotalAmount.subtract(amount);
+    }
+
+    public void removeDiscount() {
+        applyDiscount(null, BigDecimal.ZERO);
     }
 
     public boolean isHoldExpired(Instant now) {
