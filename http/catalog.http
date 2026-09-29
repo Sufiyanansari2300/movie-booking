@@ -142,5 +142,39 @@ GET {{baseUrl}}/api/shows?movieId={{movieId}}&date=2026-10-05
 ### One show
 GET {{baseUrl}}/api/shows/{{showId}}
 
-### Seat map of the show (use showSeatId values when booking)
+### Seat map of the show (stores the first two seat ids of row A as seat1, seat2)
 GET {{baseUrl}}/api/shows/{{showId}}/seats
+
+> {%
+  client.global.set("seat1", response.body.rows[0].seats[0].showSeatId);
+  client.global.set("seat2", response.body.rows[0].seats[1].showSeatId);
+%}
+
+### ---------- Bookings (customer) ----------
+
+### Hold two seats for 10 minutes (stores bookingId)
+POST {{baseUrl}}/api/shows/{{showId}}/holds
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{"showSeatIds": [{{seat1}}, {{seat2}}]}
+
+> {% client.global.set("bookingId", response.body.id); %}
+
+### View the booking (status HELD, total, holdExpiresAt)
+GET {{baseUrl}}/api/bookings/{{bookingId}}
+Authorization: Bearer {{customerToken}}
+
+### Seat map now shows the two seats as HELD
+GET {{baseUrl}}/api/shows/{{showId}}/seats
+
+### Second hold on the same show while one is active -> 409 ACTIVE_HOLD_EXISTS
+POST {{baseUrl}}/api/shows/{{showId}}/holds
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{"showSeatIds": [{{seat1}}]}
+
+### Release the hold (status RELEASED, seats AVAILABLE again)
+DELETE {{baseUrl}}/api/bookings/{{bookingId}}/hold
+Authorization: Bearer {{customerToken}}

@@ -33,6 +33,7 @@ Every meaningful assumption must be recorded in `README.md` under "Assumptions".
 ./mvnw clean verify                       # build + unit tests (*Test) + integration tests (*IT), H2
 ./mvnw test -Dtest=ClassName              # run a single unit test class
 ./mvnw verify -Dit.test=ClassNameIT       # run a single integration test class
+# Never `clean` while the app is running from IntelliJ: it deletes target/classes and kills the app.
 ./mvnw spring-boot:run                    # run the app against local MySQL (port 8090; 8081 is taken by a local nginx)
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=demo   # same, plus sample catalogue if the DB is empty
 ```
@@ -104,6 +105,15 @@ Conventions:
   (`ScreenRepository.findByIdForUpdate`) to serialize concurrent admins.
 - `show_seats` (one per seat per show, unique `(show_id, seat_id)`, `@Version`) is what gets held/booked —
   never book against `seats`. Once a screen has shows its layout, and deletes of the screen/movie, are blocked.
+- Seat holds (`BookingService.hold`): lock the requested `show_seats` with `ShowSeatRepository.lockForHold`
+  (PESSIMISTIC_WRITE, ordered by id) **before** checking them; all-or-nothing. A seat is holdable when AVAILABLE or
+  HELD with an expired `hold_expires_at` (`ShowSeat.isHoldable`). Never check-then-update without the lock.
+- Booking status changes out of HELD use conditional bulk updates (`BookingRepository.endHold` / `expireIfDue`:
+  `... where status = HELD`) so concurrent transitions have exactly one winner. Seat release is scoped to the
+  booking (`releaseHeldByBooking`) so it never frees a seat someone else has held since.
+- Expired holds are treated as free/EXPIRED on read (seat map, availability, booking view); `HoldExpiryJob` only
+  tidies up. Background jobs are off in tests (`app.scheduling.enabled=false`) and called directly.
+- Customers only see their own bookings; someone else's booking id returns 404 (not 403).
 - Emails are normalised to lower case (`UserService.normalizeEmail`).
 
 ## Core design rules
@@ -128,7 +138,11 @@ Conventions:
   JSON is Jackson 3 (`tools.jackson.databind`); `PropertyReferenceException` is in `org.springframework.data.core`.
 - All test contexts share one in-memory H2 DB. A test whose data is committed (e.g. startup runners) must use
   its own `spring.datasource.url` so it cannot leak rows into other tests (see `DemoDataSeederIT`).
-- Must include a **concurrency test**: many threads try to book the same seat, exactly one succeeds.
+- Concurrency: `concurrency/BookingConcurrencyScenarios` (20 threads race for one seat; overlapping multi-seat
+  holds) runs on H2 (`BookingConcurrencyIT`) and on real MySQL (`BookingConcurrencyMySqlIT`) when `MYSQL_IT_URL`,
+  `MYSQL_IT_USERNAME`, `MYSQL_IT_PASSWORD` are set — use a dedicated schema such as `movie_booking_it`.
+- Time travel in tests: `@Import(MutableClockConfig.class)` and `MutableClock.advance(...)`.
+  `support/TestData` builds users and a ready show (A-B regular, C premium) with unique names.
 - Every new feature ships with tests; `./mvnw clean verify` must pass before committing.
 
 ## Git workflow
