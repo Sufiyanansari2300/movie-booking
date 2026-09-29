@@ -278,6 +278,14 @@ Authorization: Bearer {{customerToken}}
 ### Seat map now shows the two seats as BOOKED
 GET {{baseUrl}}/api/shows/{{showId}}/seats
 
+### Confirmation notification (sent in the background right after payment; body is logged by the mock sender)
+GET {{baseUrl}}/api/bookings/{{bookingId}}/notifications
+Authorization: Bearer {{customerToken}}
+
+### Admin: all notifications that failed to send
+GET {{baseUrl}}/api/admin/notifications?status=FAILED
+Authorization: Bearer {{adminToken}}
+
 ### A paid booking cannot be released -> 409 BOOKING_NOT_HELD
 DELETE {{baseUrl}}/api/bookings/{{bookingId}}/hold
 Authorization: Bearer {{customerToken}}

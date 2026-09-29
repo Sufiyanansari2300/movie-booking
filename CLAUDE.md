@@ -126,6 +126,13 @@ Conventions:
   the discount under its row lock, charge through the `PaymentGateway` port (mock: token decides the outcome), and on
   success confirm with **entity** updates (not bulk queries) so `@Version` applies. Every attempt is stored;
   declines (402) / provider errors (502) leave the booking HELD. `BookingConfirmedEvent` is published on success.
+- Notifications: react to domain events with `@Async(AsyncConfig.NOTIFICATION_EXECUTOR)` +
+  `@TransactionalEventListener(AFTER_COMMIT)` — never send from inside a booking/payment transaction.
+  `NotificationService.notify` records first (unique booking+type = idempotent), calls the `NotificationSender`
+  port outside any transaction, then marks SENT/FAILED. Listeners must swallow exceptions (the booking is committed).
+  `NotificationJobs` sends reminders (lead time `app.notifications.reminder-lead-time`) and retries failures.
+- Tests of after-commit/async behaviour cannot be `@Transactional` (nothing commits); use their own H2 URL, a
+  `RecordingNotificationSender` (`@Primary` test bean) and Awaitility.
 - Prefer entity updates over `@Modifying` bulk queries when the rows may already be in the persistence context; bulk
   queries bypass it (and `clearAutomatically` detaches everything).
 - Emails are normalised to lower case (`UserService.normalizeEmail`).
