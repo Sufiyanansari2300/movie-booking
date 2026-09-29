@@ -121,6 +121,13 @@ Conventions:
   `DiscountCalculator` holds the discount math/validation (each rejection has its own error code). Applying a code
   only validates; the usage count is consumed at confirmation under `DiscountCodeRepository.findByIdForUpdate`
   and recorded in `discount_redemptions` (source of truth for per-customer limits).
+- Payment (`PaymentService.pay`): lock the booking row first (`BookingRepository.findByIdForUpdate`), then replay by
+  `Idempotency-Key` (keys are single use and bound to one booking), then require an unexpired HELD booking, re-check
+  the discount under its row lock, charge through the `PaymentGateway` port (mock: token decides the outcome), and on
+  success confirm with **entity** updates (not bulk queries) so `@Version` applies. Every attempt is stored;
+  declines (402) / provider errors (502) leave the booking HELD. `BookingConfirmedEvent` is published on success.
+- Prefer entity updates over `@Modifying` bulk queries when the rows may already be in the persistence context; bulk
+  queries bypass it (and `clearAutomatically` detaches everything).
 - Emails are normalised to lower case (`UserService.normalizeEmail`).
 
 ## Core design rules
@@ -146,7 +153,7 @@ Conventions:
 - All test contexts share one in-memory H2 DB. A test whose data is committed (e.g. startup runners) must use
   its own `spring.datasource.url` so it cannot leak rows into other tests (see `DemoDataSeederIT`).
 - Concurrency: `concurrency/BookingConcurrencyScenarios` (20 threads race for one seat; overlapping multi-seat
-  holds) runs on H2 (`BookingConcurrencyIT`) and on real MySQL (`BookingConcurrencyMySqlIT`) when `MYSQL_IT_URL`,
+  holds; last use of a discount code; 10 payments for one booking; same idempotency key sent concurrently) runs on H2 (`BookingConcurrencyIT`) and on real MySQL (`BookingConcurrencyMySqlIT`) when `MYSQL_IT_URL`,
   `MYSQL_IT_USERNAME`, `MYSQL_IT_PASSWORD` are set — use a dedicated schema such as `movie_booking_it`.
 - Time travel in tests: `@Import(MutableClockConfig.class)` and `MutableClock.advance(...)`.
   `support/TestData` builds users and a ready show (A-B regular, C premium) with unique names.

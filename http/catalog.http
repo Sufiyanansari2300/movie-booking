@@ -233,6 +233,51 @@ Content-Type: application/json
 
 {"showSeatIds": [{{seat1}}]}
 
-### Release the hold (status RELEASED, seats AVAILABLE again)
+### ---------- Payment (mock gateway) ----------
+
+### Pay with a declined card -> 402, booking stays HELD
+POST {{baseUrl}}/api/bookings/{{bookingId}}/pay
+Authorization: Bearer {{customerToken}}
+Idempotency-Key: pay-{{bookingId}}-declined
+Content-Type: application/json
+
+{"method": "CARD", "paymentToken": "tok_declined"}
+
+### Pay successfully -> 200, booking CONFIRMED, seats BOOKED
+POST {{baseUrl}}/api/bookings/{{bookingId}}/pay
+Authorization: Bearer {{customerToken}}
+Idempotency-Key: pay-{{bookingId}}-1
+Content-Type: application/json
+
+{"method": "UPI", "paymentToken": "tok_success"}
+
+### Retry with the SAME key -> same payment returned, not charged again (header Idempotent-Replayed: true)
+POST {{baseUrl}}/api/bookings/{{bookingId}}/pay
+Authorization: Bearer {{customerToken}}
+Idempotency-Key: pay-{{bookingId}}-1
+Content-Type: application/json
+
+{"method": "UPI", "paymentToken": "tok_success"}
+
+### Pay again with a NEW key -> 409 BOOKING_ALREADY_CONFIRMED
+POST {{baseUrl}}/api/bookings/{{bookingId}}/pay
+Authorization: Bearer {{customerToken}}
+Idempotency-Key: pay-{{bookingId}}-2
+Content-Type: application/json
+
+{"method": "UPI", "paymentToken": "tok_success"}
+
+### Payment attempts of the booking (one FAILED, one SUCCEEDED)
+GET {{baseUrl}}/api/bookings/{{bookingId}}/payments
+Authorization: Bearer {{customerToken}}
+
+### The confirmed booking
+GET {{baseUrl}}/api/bookings/{{bookingId}}
+Authorization: Bearer {{customerToken}}
+
+### Seat map now shows the two seats as BOOKED
+GET {{baseUrl}}/api/shows/{{showId}}/seats
+
+### A paid booking cannot be released -> 409 BOOKING_NOT_HELD
 DELETE {{baseUrl}}/api/bookings/{{bookingId}}/hold
 Authorization: Bearer {{customerToken}}
