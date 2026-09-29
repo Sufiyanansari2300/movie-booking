@@ -30,6 +30,18 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     boolean existsByShowId(Long showId);
 
+    /** Confirmed bookings whose show starts in (from, to] and that have not been reminded yet. */
+    @Query("""
+            select b.id from Booking b
+            where b.status = com.sufiyan.moviebooking.entity.BookingStatus.CONFIRMED
+              and b.show.status = com.sufiyan.moviebooking.entity.ShowStatus.SCHEDULED
+              and b.show.startTime > :from and b.show.startTime <= :to
+              and not exists (select n.id from Notification n where n.booking = b
+                              and n.type = com.sufiyan.moviebooking.entity.NotificationType.SHOW_REMINDER)
+            order by b.show.startTime
+            """)
+    List<Long> findDueForReminder(@Param("from") Instant from, @Param("to") Instant to, Limit limit);
+
     boolean existsByDiscountCodeId(Long discountCodeId);
 
     /** An unexpired hold of this user on this show (one active hold per user per show). */
