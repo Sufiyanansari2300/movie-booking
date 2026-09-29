@@ -18,6 +18,7 @@ public record BookingResponse(
         BigDecimal discountAmount,
         BigDecimal totalAmount,
         OffsetDateTime holdExpiresAt,
+        OffsetDateTime confirmedAt,
         OffsetDateTime createdAt) {
 
     public record ShowInfo(Long id, String movieTitle, String theaterName, String screenName, OffsetDateTime startTime) {

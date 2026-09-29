@@ -43,6 +43,9 @@ public interface ShowSeatRepository extends JpaRepository<ShowSeat, Long> {
             """)
     List<Object[]> countHoldableByShow(@Param("showIds") Collection<Long> showIds, @Param("now") Instant now);
 
+    /** Seats currently tied to a booking in the given status (at most max-seats-per-booking rows). */
+    List<ShowSeat> findByBookingIdAndStatus(Long bookingId, ShowSeatStatus status);
+
     /**
      * Frees seats still held by the given booking. Scoped to that booking so it never touches a seat that
      * someone else has held since (after this booking's hold expired). Bumps version for optimistic locking.

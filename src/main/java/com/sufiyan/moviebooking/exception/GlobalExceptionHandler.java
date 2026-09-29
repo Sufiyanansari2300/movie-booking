@@ -14,7 +14,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.bind.ServletRequestBindingException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -57,7 +57,8 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, "MALFORMED_REQUEST", "Request body is missing or malformed", req);
     }
 
-    @ExceptionHandler({MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class})
+    /** Missing/invalid path variables, query params and headers (e.g. a missing Idempotency-Key). */
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, ServletRequestBindingException.class})
     ResponseEntity<ApiError> handleBadParameter(Exception ex, HttpServletRequest req) {
         return build(HttpStatus.BAD_REQUEST, "INVALID_PARAMETER", ex.getMessage(), req);
     }

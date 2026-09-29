@@ -58,6 +58,9 @@ public class Booking extends BaseEntity {
     @Column(name = "applied_pricing_rules")
     private String appliedPricingRules;
 
+    @Column(name = "confirmed_at")
+    private Instant confirmedAt;
+
     @Version
     @Column(nullable = false)
     private long version;
@@ -77,6 +80,11 @@ public class Booking extends BaseEntity {
         this.discountCode = code;
         this.discountAmount = amount;
         this.totalAmount = subtotalAmount.subtract(amount);
+    }
+
+    public void confirm(Instant now) {
+        this.status = BookingStatus.CONFIRMED;
+        this.confirmedAt = now;
     }
 
     public void removeDiscount() {

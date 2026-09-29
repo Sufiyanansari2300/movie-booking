@@ -1,26 +1,38 @@
 package com.sufiyan.moviebooking.concurrency;
 
+import com.sufiyan.moviebooking.dto.PayRequest;
 import com.sufiyan.moviebooking.entity.Booking;
 import com.sufiyan.moviebooking.entity.BookingSeat;
 import com.sufiyan.moviebooking.entity.BookingStatus;
+import com.sufiyan.moviebooking.entity.DiscountCode;
+import com.sufiyan.moviebooking.entity.DiscountType;
+import com.sufiyan.moviebooking.entity.PaymentMethod;
 import com.sufiyan.moviebooking.entity.Role;
 import com.sufiyan.moviebooking.entity.ShowSeat;
 import com.sufiyan.moviebooking.entity.ShowSeatStatus;
+import com.sufiyan.moviebooking.entity.User;
 import com.sufiyan.moviebooking.exception.BusinessException;
 import com.sufiyan.moviebooking.repository.BookingRepository;
 import com.sufiyan.moviebooking.repository.BookingSeatRepository;
+import com.sufiyan.moviebooking.repository.DiscountCodeRepository;
+import com.sufiyan.moviebooking.repository.PaymentRepository;
 import com.sufiyan.moviebooking.repository.ShowSeatRepository;
+import com.sufiyan.moviebooking.security.AppUserPrincipal;
 import com.sufiyan.moviebooking.service.BookingService;
-import com.sufiyan.moviebooking.support.TestData;
+import com.sufiyan.moviebooking.service.PaymentService;
 import com.sufiyan.moviebooking.support.TestData.ShowFixture;
+import com.sufiyan.moviebooking.support.TestData;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -41,6 +53,11 @@ abstract class BookingConcurrencyScenarios {
     @Autowired private BookingRepository bookingRepository;
     @Autowired private BookingSeatRepository bookingSeatRepository;
     @Autowired private ShowSeatRepository showSeatRepository;
+    @Autowired private PaymentService paymentService;
+    @Autowired private PaymentRepository paymentRepository;
+    @Autowired private DiscountCodeRepository discountCodeRepository;
+
+    private static final PayRequest CARD = new PayRequest(PaymentMethod.CARD, "tok_success");
 
     @Test
     void twentyCustomersRaceForOneSeat_exactlyOneWins() throws Exception {
@@ -105,6 +122,70 @@ abstract class BookingConcurrencyScenarios {
                 assertThat(bookingIdOf(stored)).isEqualTo(bookingId);
             }
         }
+    }
+
+    /** Two customers applied the same code while one use was left; both pay at once. Only one may get it. */
+    @Test
+    void lastUseOfADiscountCode_goesToExactlyOneOfTwoConcurrentPayments() throws Exception {
+        TestData data = new TestData(ctx);
+        ShowFixture show = data.show();
+        DiscountCode code = new DiscountCode("LAST" + UUID.randomUUID().toString().substring(0, 8).toUpperCase(),
+                DiscountType.FLAT, new BigDecimal("50"));
+        code.setUsageLimit(1);
+        discountCodeRepository.save(code);
+        List<Callable<Long>> payments = new ArrayList<>();
+        for (String seat : List.of("A1", "A2")) {
+            User user = data.user(Role.CUSTOMER);
+            AppUserPrincipal principal = AppUserPrincipal.from(user);
+            long bookingId = bookingService.hold(user.getId(), show.showId(), List.of(show.seat(seat))).id();
+            bookingService.applyDiscount(principal, bookingId, code.getCode());
+            payments.add(() -> paymentService.pay(principal, bookingId, "k-" + UUID.randomUUID(), CARD)
+                    .payment().booking().id());
+        }
+
+        List<Outcome> outcomes = runConcurrently(payments);
+
+        assertThat(outcomes).filteredOn(Outcome::won).hasSize(1);
+        assertThat(outcomes).filteredOn(o -> !o.won()).singleElement()
+                .extracting(Outcome::errorCode).isEqualTo("DISCOUNT_NO_LONGER_VALID");
+        assertThat(discountCodeRepository.findById(code.getId()).orElseThrow().getUsedCount()).isEqualTo(1);
+    }
+
+    /** A double-click storm: ten payment requests with different keys for the same booking. */
+    @Test
+    void concurrentPaymentsForOneBooking_chargeExactlyOnce() throws Exception {
+        TestData data = new TestData(ctx);
+        ShowFixture show = data.show();
+        User user = data.user(Role.CUSTOMER);
+        AppUserPrincipal principal = AppUserPrincipal.from(user);
+        long bookingId = bookingService.hold(user.getId(), show.showId(), List.of(show.seat("A1"))).id();
+
+        List<Outcome> outcomes = runConcurrently(Collections.nCopies(10, (Callable<Long>) () ->
+                paymentService.pay(principal, bookingId, "k-" + UUID.randomUUID(), CARD).payment().paymentId()));
+
+        assertThat(outcomes).filteredOn(Outcome::won).hasSize(1);
+        assertThat(outcomes).filteredOn(o -> !o.won()).hasSize(9)
+                .allSatisfy(o -> assertThat(o.errorCode()).isEqualTo("BOOKING_ALREADY_CONFIRMED"));
+        assertThat(paymentRepository.countByBookingId(bookingId)).isEqualTo(1);
+        assertThat(bookingRepository.findById(bookingId).orElseThrow().getStatus()).isEqualTo(BookingStatus.CONFIRMED);
+    }
+
+    /** A client retrying the same request (same key) while the first is still running. */
+    @Test
+    void sameIdempotencyKeySentConcurrently_chargesOnce_andEveryoneGetsThatPayment() throws Exception {
+        TestData data = new TestData(ctx);
+        ShowFixture show = data.show();
+        User user = data.user(Role.CUSTOMER);
+        AppUserPrincipal principal = AppUserPrincipal.from(user);
+        long bookingId = bookingService.hold(user.getId(), show.showId(), List.of(show.seat("A1"))).id();
+        String key = "k-" + UUID.randomUUID();
+
+        List<Outcome> outcomes = runConcurrently(Collections.nCopies(10, (Callable<Long>) () ->
+                paymentService.pay(principal, bookingId, key, CARD).payment().paymentId()));
+
+        assertThat(outcomes).allSatisfy(o -> assertThat(o.won()).as(o.errorCode()).isTrue());
+        assertThat(outcomes.stream().map(Outcome::bookingId).distinct()).as("same payment id for all").hasSize(1);
+        assertThat(paymentRepository.countByBookingId(bookingId)).isEqualTo(1);
     }
 
     /** Id of the booking that currently holds the seat (reading a lazy proxy's id needs no session). */

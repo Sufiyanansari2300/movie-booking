@@ -13,4 +13,6 @@ public interface BookingSeatRepository extends JpaRepository<BookingSeat, Long> 
     @EntityGraph(attributePaths = {"showSeat", "showSeat.seat"})
     @Query("select bs from BookingSeat bs where bs.booking.id = :bookingId order by bs.showSeat.seat.rowLabel, bs.showSeat.seat.seatNumber")
     List<BookingSeat> findByBookingId(@Param("bookingId") Long bookingId);
+
+    long countByBookingId(Long bookingId);
 }

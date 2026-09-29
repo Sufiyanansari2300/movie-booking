@@ -197,7 +197,8 @@ public class BookingService {
                 seats,
                 b.getAppliedPricingRules() == null ? List.of() : List.of(b.getAppliedPricingRules().split(", ")),
                 b.getSubtotalAmount(), b.getDiscountCode() == null ? null : b.getDiscountCode().getCode(),
-                b.getDiscountAmount(), b.getTotalAmount(), zoned(b.getHoldExpiresAt()), zoned(b.getCreatedAt()));
+                b.getDiscountAmount(), b.getTotalAmount(), zoned(b.getHoldExpiresAt()),
+                b.getConfirmedAt() == null ? null : zoned(b.getConfirmedAt()), zoned(b.getCreatedAt()));
     }
 
     private Booking requireActiveHold(Booking booking) {

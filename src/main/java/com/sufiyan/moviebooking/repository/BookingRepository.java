@@ -2,11 +2,15 @@ package com.sufiyan.moviebooking.repository;
 
 import com.sufiyan.moviebooking.entity.Booking;
 import com.sufiyan.moviebooking.entity.BookingStatus;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.QueryHint;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
@@ -17,6 +21,12 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     @EntityGraph(attributePaths = {"user", "show", "show.movie", "show.screen", "show.screen.theater", "discountCode"})
     Optional<Booking> findDetailedById(Long id);
+
+    /** Locks the booking row; serializes payment attempts, confirmation and expiry of one booking. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "5000"))
+    @Query("select b from Booking b where b.id = :id")
+    Optional<Booking> findByIdForUpdate(@Param("id") Long id);
 
     boolean existsByShowId(Long showId);
 

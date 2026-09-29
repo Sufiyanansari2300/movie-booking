@@ -68,6 +68,12 @@ public class ShowSeat extends BaseEntity {
         return isHoldable(now) ? ShowSeatStatus.AVAILABLE : status;
     }
 
+    /** Paid: the seat stays with its booking for good. */
+    public void markBooked() {
+        this.status = ShowSeatStatus.BOOKED;
+        this.holdExpiresAt = null;
+    }
+
     public void hold(Booking booking, Instant expiresAt) {
         this.status = ShowSeatStatus.HELD;
         this.booking = booking;
