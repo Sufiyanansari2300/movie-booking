@@ -114,6 +114,13 @@ Conventions:
 - Expired holds are treated as free/EXPIRED on read (seat map, availability, booking view); `HoldExpiryJob` only
   tidies up. Background jobs are off in tests (`app.scheduling.enabled=false`) and called directly.
 - Customers only see their own bookings; someone else's booking id returns 404 (not 403).
+- Money: `BigDecimal`, 2 decimals, `RoundingMode.HALF_UP`. Seat price = base (`show_prices`) adjusted by the sum of
+  matching active pricing rules (`PricingService`, WEEKEND / PRIME_TIME in the business zone), computed once at hold
+  time and stored on `booking_seats` (base_price + price). Rule changes never reprice existing bookings.
+- Booking totals: `subtotal_amount` (seats after rules) - `discount_amount` = `total_amount`.
+  `DiscountCalculator` holds the discount math/validation (each rejection has its own error code). Applying a code
+  only validates; the usage count is consumed at confirmation under `DiscountCodeRepository.findByIdForUpdate`
+  and recorded in `discount_redemptions` (source of truth for per-customer limits).
 - Emails are normalised to lower case (`UserService.normalizeEmail`).
 
 ## Core design rules

@@ -88,6 +88,46 @@ Content-Type: application/json
 
 > {% client.global.set("movieId", response.body.id); %}
 
+### ---------- Admin: pricing rules & discount codes ----------
+
+### Weekend surcharge +20% (409 if it already exists)
+POST {{baseUrl}}/api/admin/pricing-rules
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{"name": "Weekend surcharge", "ruleType": "WEEKEND", "adjustmentPercent": 20}
+
+### Prime time +10% for shows starting 18:00-22:00
+POST {{baseUrl}}/api/admin/pricing-rules
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{"name": "Prime time", "ruleType": "PRIME_TIME", "adjustmentPercent": 10, "windowStart": "18:00", "windowEnd": "22:00"}
+
+### List pricing rules
+GET {{baseUrl}}/api/admin/pricing-rules
+Authorization: Bearer {{adminToken}}
+
+### Discount: 10% off, max 100, once per customer
+POST {{baseUrl}}/api/admin/discount-codes
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{"code": "WELCOME10", "description": "10% off, up to 100", "discountType": "PERCENT", "discountValue": 10,
+ "maxDiscountAmount": 100, "perUserLimit": 1}
+
+### Discount: flat 50 off orders of 300+
+POST {{baseUrl}}/api/admin/discount-codes
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{"code": "FLAT50", "description": "50 off orders of 300+", "discountType": "FLAT", "discountValue": 50,
+ "minOrderAmount": 300, "usageLimit": 1000}
+
+### List discount codes (with usage counts)
+GET {{baseUrl}}/api/admin/discount-codes
+Authorization: Bearer {{adminToken}}
+
 ### Schedule a show (set showStartTime in http-client.env.json to a future time; stores showId)
 POST {{baseUrl}}/api/admin/shows
 Authorization: Bearer {{adminToken}}
@@ -167,6 +207,24 @@ Authorization: Bearer {{customerToken}}
 
 ### Seat map now shows the two seats as HELD
 GET {{baseUrl}}/api/shows/{{showId}}/seats
+
+### Apply a discount code (subtotal, discount and total in the response)
+POST {{baseUrl}}/api/bookings/{{bookingId}}/discount
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{"code": "WELCOME10"}
+
+### Swap to another code (FLAT50 needs a subtotal of 300+)
+POST {{baseUrl}}/api/bookings/{{bookingId}}/discount
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{"code": "FLAT50"}
+
+### Remove the discount code
+DELETE {{baseUrl}}/api/bookings/{{bookingId}}/discount
+Authorization: Bearer {{customerToken}}
 
 ### Second hold on the same show while one is active -> 409 ACTIVE_HOLD_EXISTS
 POST {{baseUrl}}/api/shows/{{showId}}/holds

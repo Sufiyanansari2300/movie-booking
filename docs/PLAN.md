@@ -66,8 +66,8 @@ POST   /api/bookings/{id}/cancel         refund per policy, seats AVAILABLE
 | 2b | Swagger / OpenAPI for all endpoints, with a coverage test | Done |
 | 3 | Shows: overlap check, ShowSeat + price generation, seat map. Also: block layout replacement, screen delete and movie delete once shows exist | Done |
 | 4 | Seat holds: row locking, all-or-nothing holds, 10-min expiry (sweeper + expiry on read), release, concurrency tests on H2 and MySQL | Done |
-| 5 | Pricing rules + discount codes | |
-| 6 | Mock payment + confirmation (idempotent) | |
+| 5 | Pricing rules (weekend, prime time; summed) + discount codes (percent/flat, limits, validity), applied to held bookings | Done |
+| 6 | Mock payment + confirmation (idempotent). Also: consume discount usage under a row lock + write discount_redemptions | |
 | 7 | Async notifications + reminder job | |
 | 8 | Refund policies, cancellation, admin show cancel | |
 | 9 | Booking history (pagination and Swagger already done) | |

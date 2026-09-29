@@ -2,15 +2,21 @@ package com.sufiyan.moviebooking.config;
 
 import com.sufiyan.moviebooking.dto.CityRequest;
 import com.sufiyan.moviebooking.dto.CreateShowRequest;
+import com.sufiyan.moviebooking.dto.DiscountCodeRequest;
+import com.sufiyan.moviebooking.dto.PricingRuleRequest;
 import com.sufiyan.moviebooking.dto.MovieRequest;
 import com.sufiyan.moviebooking.dto.ScreenRequest;
 import com.sufiyan.moviebooking.dto.SeatLayoutRequest;
 import com.sufiyan.moviebooking.dto.SeatLayoutRequest.Section;
 import com.sufiyan.moviebooking.dto.TheaterRequest;
+import com.sufiyan.moviebooking.entity.DiscountType;
+import com.sufiyan.moviebooking.entity.PricingRuleType;
 import com.sufiyan.moviebooking.entity.SeatType;
 import com.sufiyan.moviebooking.repository.CityRepository;
 import com.sufiyan.moviebooking.service.CityService;
+import com.sufiyan.moviebooking.service.DiscountCodeService;
 import com.sufiyan.moviebooking.service.MovieService;
+import com.sufiyan.moviebooking.service.PricingRuleService;
 import com.sufiyan.moviebooking.service.ScreenService;
 import com.sufiyan.moviebooking.service.ShowService;
 import com.sufiyan.moviebooking.service.TheaterService;
@@ -33,7 +39,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Loads sample catalogue data (and upcoming shows) for demos. Only active with the {@code demo} profile and only when the
+ * Loads sample catalogue data (upcoming shows, pricing rules, discount codes) for demos. Only active with the {@code demo} profile and only when the
  * database has no cities yet, so it never touches real data and is safe to restart.
  * Goes through the services so the same validation rules apply as for the admin API.
  */
@@ -58,6 +64,8 @@ public class DemoDataSeeder implements ApplicationRunner {
     private final ScreenService screenService;
     private final MovieService movieService;
     private final ShowService showService;
+    private final PricingRuleService pricingRuleService;
+    private final DiscountCodeService discountCodeService;
     private final Clock clock;
     private final ZoneId businessZone;
 
@@ -88,7 +96,18 @@ public class DemoDataSeeder implements ApplicationRunner {
         movie("Jawan", "A man sets out to rectify wrongs in society.", "Hindi", "Action", 169, "UA", "2023-09-07");
 
         int shows = scheduleShows();
-        log.info("Demo data loaded: 3 cities, 4 theaters, 8 screens, 5 movies, {} shows", shows);
+
+        pricingRuleService.create(new PricingRuleRequest("Weekend surcharge", PricingRuleType.WEEKEND,
+                new BigDecimal("20"), null, null, true));
+        pricingRuleService.create(new PricingRuleRequest("Prime time", PricingRuleType.PRIME_TIME,
+                new BigDecimal("10"), LocalTime.of(18, 0), LocalTime.of(22, 0), true));
+        discountCodeService.create(new DiscountCodeRequest("WELCOME10", "10% off your first booking, up to 100",
+                DiscountType.PERCENT, new BigDecimal("10"), new BigDecimal("100"), null, null, null, null, 1, true));
+        discountCodeService.create(new DiscountCodeRequest("FLAT50", "50 off orders of 300 or more",
+                DiscountType.FLAT, new BigDecimal("50"), null, new BigDecimal("300"), null, null, 1000, null, true));
+
+        log.info("Demo data loaded: 3 cities, 4 theaters, 8 screens, 5 movies, {} shows, 2 pricing rules, "
+                + "2 discount codes", shows);
     }
 
     private void theater(long cityId, String name, String address) {
