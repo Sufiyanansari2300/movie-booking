@@ -5,10 +5,14 @@ import com.sufiyan.moviebooking.dto.LoginRequest;
 import com.sufiyan.moviebooking.dto.LoginResponse;
 import com.sufiyan.moviebooking.dto.RegisterRequest;
 import com.sufiyan.moviebooking.dto.UserResponse;
+import com.sufiyan.moviebooking.exception.ApiError;
 import com.sufiyan.moviebooking.security.AppUserPrincipal;
 import com.sufiyan.moviebooking.service.AuthService;
 import com.sufiyan.moviebooking.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -39,6 +43,9 @@ public class AuthController {
     }
 
     @Operation(summary = "Log in with email + password and receive a 24h JWT access token")
+    @ApiResponse(responseCode = "200", description = "Logged in; use accessToken as a Bearer token")
+    @ApiResponse(responseCode = "401", description = "INVALID_CREDENTIALS (same for unknown email and wrong password)",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
