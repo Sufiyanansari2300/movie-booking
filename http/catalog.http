@@ -128,6 +128,18 @@ Content-Type: application/json
 GET {{baseUrl}}/api/admin/discount-codes
 Authorization: Bearer {{adminToken}}
 
+### Refund policy: 48h+ before the show -> 100%, 24-48h -> 50%, less -> 0% (active for new bookings)
+POST {{baseUrl}}/api/admin/refund-policies
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{"name": "Standard", "active": true,
+ "rules": [{"minHoursBeforeShow": 48, "refundPercent": 100}, {"minHoursBeforeShow": 24, "refundPercent": 50}]}
+
+### List refund policies
+GET {{baseUrl}}/api/admin/refund-policies
+Authorization: Bearer {{adminToken}}
+
 ### Schedule a show (set showStartTime in http-client.env.json to a future time; stores showId)
 POST {{baseUrl}}/api/admin/shows
 Authorization: Bearer {{adminToken}}
@@ -289,3 +301,24 @@ Authorization: Bearer {{adminToken}}
 ### A paid booking cannot be released -> 409 BOOKING_NOT_HELD
 DELETE {{baseUrl}}/api/bookings/{{bookingId}}/hold
 Authorization: Bearer {{customerToken}}
+
+### ---------- Cancellation & refund ----------
+
+### What would I get back if I cancelled now?
+GET {{baseUrl}}/api/bookings/{{bookingId}}/refund-quote
+Authorization: Bearer {{customerToken}}
+
+### Cancel the booking (refund per policy; seats go back on sale)
+POST {{baseUrl}}/api/bookings/{{bookingId}}/cancel
+Authorization: Bearer {{customerToken}}
+
+### Cancellation notice (sent in the background)
+GET {{baseUrl}}/api/bookings/{{bookingId}}/notifications
+Authorization: Bearer {{customerToken}}
+
+### WARNING - cancels the whole show: full refund for every paid booking, holds released
+POST {{baseUrl}}/api/admin/shows/{{showId}}/cancel
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{"reason": "Projector failure"}

@@ -126,6 +126,12 @@ Conventions:
   the discount under its row lock, charge through the `PaymentGateway` port (mock: token decides the outcome), and on
   success confirm with **entity** updates (not bulk queries) so `@Version` applies. Every attempt is stored;
   declines (402) / provider errors (502) leave the booking HELD. `BookingConfirmedEvent` is published on success.
+- Refunds: the active `RefundPolicy` is frozen onto the booking at confirmation (`bookings.refund_policy_id`); a
+  policy referenced by bookings is immutable. `RefundCalculator`: the band with the largest threshold met wins
+  (inclusive), below all bands = 0%; refund = amount actually paid x percent. Cancellation (`CancellationService`)
+  locks the booking row, refunds through `PaymentGateway.refund` (failure = nothing changes, 502), releases seats,
+  publishes `BookingCancelledEvent`. Show cancellation: mark show CANCELLED first, then settle each booking in its
+  own transaction (100% refund / release hold); re-running resumes. Payment rejects non-SCHEDULED shows.
 - Notifications: react to domain events with `@Async(AsyncConfig.NOTIFICATION_EXECUTOR)` +
   `@TransactionalEventListener(AFTER_COMMIT)` — never send from inside a booking/payment transaction.
   `NotificationService.notify` records first (unique booking+type = idempotent), calls the `NotificationSender`

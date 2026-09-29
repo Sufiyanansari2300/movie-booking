@@ -4,6 +4,7 @@ import com.sufiyan.moviebooking.dto.CityRequest;
 import com.sufiyan.moviebooking.dto.CreateShowRequest;
 import com.sufiyan.moviebooking.dto.DiscountCodeRequest;
 import com.sufiyan.moviebooking.dto.PricingRuleRequest;
+import com.sufiyan.moviebooking.dto.RefundPolicyRequest;
 import com.sufiyan.moviebooking.dto.MovieRequest;
 import com.sufiyan.moviebooking.dto.ScreenRequest;
 import com.sufiyan.moviebooking.dto.SeatLayoutRequest;
@@ -17,6 +18,7 @@ import com.sufiyan.moviebooking.service.CityService;
 import com.sufiyan.moviebooking.service.DiscountCodeService;
 import com.sufiyan.moviebooking.service.MovieService;
 import com.sufiyan.moviebooking.service.PricingRuleService;
+import com.sufiyan.moviebooking.service.RefundPolicyService;
 import com.sufiyan.moviebooking.service.ScreenService;
 import com.sufiyan.moviebooking.service.ShowService;
 import com.sufiyan.moviebooking.service.TheaterService;
@@ -39,7 +41,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Loads sample catalogue data (upcoming shows, pricing rules, discount codes) for demos. Only active with the {@code demo} profile and only when the
+ * Loads sample catalogue data (upcoming shows, pricing rules, discount codes, a refund policy) for demos. Only active with the {@code demo} profile and only when the
  * database has no cities yet, so it never touches real data and is safe to restart.
  * Goes through the services so the same validation rules apply as for the admin API.
  */
@@ -66,6 +68,7 @@ public class DemoDataSeeder implements ApplicationRunner {
     private final ShowService showService;
     private final PricingRuleService pricingRuleService;
     private final DiscountCodeService discountCodeService;
+    private final RefundPolicyService refundPolicyService;
     private final Clock clock;
     private final ZoneId businessZone;
 
@@ -106,8 +109,12 @@ public class DemoDataSeeder implements ApplicationRunner {
         discountCodeService.create(new DiscountCodeRequest("FLAT50", "50 off orders of 300 or more",
                 DiscountType.FLAT, new BigDecimal("50"), null, new BigDecimal("300"), null, null, 1000, null, true));
 
+        refundPolicyService.create(new RefundPolicyRequest("Standard", List.of(
+                new RefundPolicyRequest.Band(48, new BigDecimal("100")),
+                new RefundPolicyRequest.Band(24, new BigDecimal("50"))), true));
+
         log.info("Demo data loaded: 3 cities, 4 theaters, 8 screens, 5 movies, {} shows, 2 pricing rules, "
-                + "2 discount codes", shows);
+                + "2 discount codes, 1 refund policy", shows);
     }
 
     private void theater(long cityId, String name, String address) {

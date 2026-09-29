@@ -4,6 +4,7 @@ import com.sufiyan.moviebooking.repository.CityRepository;
 import com.sufiyan.moviebooking.repository.DiscountCodeRepository;
 import com.sufiyan.moviebooking.repository.MovieRepository;
 import com.sufiyan.moviebooking.repository.PricingRuleRepository;
+import com.sufiyan.moviebooking.repository.RefundPolicyRepository;
 import com.sufiyan.moviebooking.repository.ScreenRepository;
 import com.sufiyan.moviebooking.repository.SeatRepository;
 import com.sufiyan.moviebooking.repository.ShowRepository;
@@ -53,6 +54,9 @@ class DemoDataSeederIT {
     @Autowired
     private DiscountCodeRepository discountCodeRepository;
 
+    @Autowired
+    private RefundPolicyRepository refundPolicyRepository;
+
     @Test
     void loadsCatalogueOnStartup_andIsIdempotent() {
         assertThat(cityRepository.count()).isEqualTo(3);
@@ -66,6 +70,7 @@ class DemoDataSeederIT {
         assertThat(pricingRuleRepository.count()).isEqualTo(2);
         assertThat(discountCodeRepository.findByCode("WELCOME10")).isPresent();
         assertThat(discountCodeRepository.findByCode("FLAT50")).isPresent();
+        assertThat(refundPolicyRepository.findFirstByActiveTrue()).get().extracting("name").isEqualTo("Standard");
 
         seeder.run(new DefaultApplicationArguments());
 
